@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Color Advisor — バナー・FV配色アプリ</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,600;0,900;1,300;1,600&family=DM+Sans:wght@300;400;500;600&family=Noto+Sans+JP:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0A0C;--s1:#111115;--s2:#18181E;--s3:#22222A;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --text:#F2EFE8;--muted:rgba(242,239,232,0.42);--muted2:rgba(242,239,232,0.22);
+  --accent:#C8A96E;--radius:14px;--r2:10px;
+}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans','Noto Sans JP',sans-serif;}
+body::after{content:'';position:fixed;inset:0;background:url("data:image/svg+xml,%3Csvg viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.028'/%3E%3C/svg%3E");pointer-events:none;z-index:9999}
+
+/* ══ HEADER ══ */
+header{height:62px;padding:0 32px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(10,10,12,0.96);backdrop-filter:blur(20px);position:fixed;top:0;left:0;right:0;z-index:200;flex-shrink:0}
+.logo{font-family:'Fraunces',serif;font-size:1.25rem;font-weight:600;letter-spacing:-.02em;white-space:nowrap}
+.logo span{font-style:italic;font-weight:300;opacity:.5}
+.mode-toggle{display:flex;background:var(--s2);border-radius:100px;padding:3px;gap:2px;border:1px solid var(--border)}
+.mt-btn{font-size:.65rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:100px;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all .2s;white-space:nowrap}
+.mt-btn.active{background:var(--accent);color:#0A0A0C}
+
+/* ══ LAYOUT — sidebar fixed, main scrollable ══ */
+.app-wrap{display:flex;height:calc(100vh - 62px);margin-top:62px;overflow:hidden}
+
+/* ① サイドバー固定 */
+.sidebar{
+  width:320px;flex-shrink:0;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;
+  overflow:hidden;          /* 内部でスクロール */
+  position:sticky;top:62px;
+  height:calc(100vh - 62px);
+}
+.sidebar-scroll{overflow-y:auto;flex:1;padding:20px 18px;display:flex;flex-direction:column;gap:16px}
+/* スクロールバー薄く */
+.sidebar-scroll::-webkit-scrollbar{width:4px}
+.sidebar-scroll::-webkit-scrollbar-track{background:transparent}
+.sidebar-scroll::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+.main-area{flex:1;overflow-y:auto;padding:24px 28px 60px}
+.main-area::-webkit-scrollbar{width:6px}
+.main-area::-webkit-scrollbar-track{background:transparent}
+.main-area::-webkit-scrollbar-thumb{background:var(--border2);border-radius:4px}
+
+@media(max-width:900px){
+  .app-wrap{flex-direction:column;overflow:auto;height:auto}
+  .sidebar{width:100%;height:auto;position:static;overflow:visible}
+  .sidebar-scroll{overflow:visible}
+  .main-area{padding:16px}
+  header{padding:0 16px}
+}
+
+/* ══ PANELS ══ */
+.panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.panel-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.panel-title{font-size:.65rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.panel-body{padding:14px 16px}
+
+.mode-panel{display:none}.mode-panel.active{display:block}
+
+/* ══ THEME GRID ══ */
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.theme-card{border-radius:var(--r2);overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all .2s;position:relative}
+.theme-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.theme-card.selected{border-color:var(--accent)}
+.theme-card.selected::after{content:'✓';position:absolute;top:5px;right:7px;font-size:.65rem;font-weight:700;color:#fff;background:rgba(0,0,0,.5);border-radius:100px;padding:2px 5px;backdrop-filter:blur(4px)}
+.tc-preview{height:44px;display:flex}.tc-preview span{flex:1}
+.tc-label{background:var(--s2);padding:6px 9px}
+.tc-name{font-size:.67rem;font-weight:600;color:var(--text)}
+.tc-mood{font-size:.55rem;color:var(--muted);margin-top:1px}
+
+/* ══ IMAGE UPLOAD ══ */
+.upload-zone{border:2px dashed var(--border2);border-radius:var(--r2);padding:20px 12px;text-align:center;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--accent);background:rgba(200,169,110,.04)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.upload-icon{font-size:1.6rem;margin-bottom:6px;display:block}
+.upload-text{font-size:.72rem;color:var(--muted);line-height:1.5}
+.upload-preview{width:100%;border-radius:7px;object-fit:cover;max-height:130px;display:none;margin-top:8px}
+#extractedColors{display:flex;gap:5px;flex-wrap:wrap;margin-top:10px}
+.ext-dot{width:32px;height:32px;border-radius:50%;cursor:pointer;border:2px solid rgba(255,255,255,.15);box-shadow:0 2px 8px rgba(0,0,0,.4);transition:transform .15s;flex-shrink:0}
+.ext-dot:hover{transform:scale(1.15)}
+.ext-dot.selected-ext{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,169,110,.3)}
+
+/* ══ PALETTE DISPLAY ══ */
+.palette-bar{display:flex;height:54px;border-radius:9px;overflow:hidden;gap:2px;cursor:pointer}
+.pb-seg{flex:1;transition:flex .3s cubic-bezier(.4,0,.2,1);position:relative;cursor:pointer}
+.pb-seg:hover{flex:2}
+.pb-seg::after{content:attr(data-hex);position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:.52rem;font-weight:700;letter-spacing:.05em;color:transparent;transition:color .15s;white-space:nowrap;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.pb-seg:hover::after{color:rgba(255,255,255,.9)}
+.swatch-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.sw-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .15s}
+.sw-item:hover{transform:translateY(-2px)}
+.sw-circle{width:34px;height:34px;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.12)}
+.sw-hex{font-size:.5rem;color:var(--muted);letter-spacing:.05em;font-family:'DM Sans',monospace}
+.sw-role{font-size:.5rem;color:var(--muted);font-weight:600;letter-spacing:.06em;text-transform:uppercase}
+.use-guide{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px}
+.ug-item{background:var(--s3);border-radius:7px;padding:8px 10px}
+.ug-role{font-size:.55rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin-bottom:5px}
+.ug-dots{display:flex;gap:4px;flex-wrap:wrap}
+.ug-dot{width:18px;height:18px;border-radius:50%;cursor:pointer;transition:transform .15s;box-shadow:0 2px 6px rgba(0,0,0,.4)}
+.ug-dot:hover{transform:scale(1.2)}
+
+/* ══ TEXT COLOR CHECKER ══ */
+.tc-checker{margin-top:14px}
+.tc-checker-title{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.tct-icon{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:5px;background:var(--accent);color:#0A0A0C;font-size:.6rem;font-weight:800;flex-shrink:0}
+.tc-pairs{display:flex;flex-direction:column;gap:5px}
+.tc-pair{border-radius:9px;overflow:hidden;cursor:pointer;transition:transform .15s;border:1px solid var(--border)}
+.tc-pair:hover{transform:scale(1.01)}
+.tc-pair-demo{padding:9px 12px;display:flex;flex-direction:column;gap:2px}
+.tc-pair-sample-title{font-family:'Fraunces',serif;font-size:.88rem;font-weight:600;letter-spacing:-.01em;line-height:1}
+.tc-pair-sample-body{font-size:.6rem;opacity:.75;line-height:1.4;margin-top:2px}
+.tc-pair-meta{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(0,0,0,.22)}
+.tc-pair-hexes{font-size:.55rem;letter-spacing:.05em;font-family:'DM Sans',monospace;opacity:.7}
+.tc-badge{font-size:.52rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:100px}
+.tc-badge.aaa{background:rgba(80,200,80,.18);color:#5CE05C}
+.tc-badge.aa{background:rgba(220,180,60,.18);color:#D4B040}
+.tc-badge.fail{background:rgba(220,70,70,.18);color:#E05858}
+
+/* ══ DIVIDER ══ */
+.sec-divider{height:1px;background:var(--border);margin:14px 0}
+.sec-title{font-size:.6rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+
+/* ══ PREVIEW TABS ══ */
+.preview-tabs{display:flex;gap:5px;margin-bottom:18px;flex-wrap:wrap}
+.prev-tab{font-size:.67rem;font-weight:600;letter-spacing:.07em;text-transform:uppercase;padding:7px 15px;border-radius:100px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .2s}
+.prev-tab.active{background:var(--text);color:var(--bg)}
+
+/* ══ BANNER PREVIEWS ══ */
+.banner-wrap{display:flex;flex-direction:column;gap:14px}
+.banner-frame{border-radius:11px;overflow:hidden;position:relative;box-shadow:0 14px 40px rgba(0,0,0,.5)}
+.banner-label{font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.bn-header{width:100%;aspect-ratio:3/1;display:flex;align-items:center;padding:0 8%;position:relative;overflow:hidden}
+.bn-header .bn-deco{position:absolute;right:-5%;top:-20%;width:55%;height:140%;border-radius:50%;opacity:.18}
+.bn-header .bn-content{position:relative;z-index:2;display:flex;flex-direction:column;gap:7px;max-width:55%}
+.bn-eyebrow{font-size:.6rem;font-weight:700;letter-spacing:.18em;text-transform:uppercase;opacity:.7}
+.bn-title{font-family:'Fraunces',serif;font-size:clamp(1rem,3.5vw,2rem);font-weight:600;line-height:1.1;letter-spacing:-.02em}
+.bn-sub{font-size:.7rem;opacity:.65;line-height:1.5;margin-top:2px}
+.bn-cta{display:inline-flex;align-items:center;gap:5px;font-size:.68rem;font-weight:600;letter-spacing:.06em;padding:8px 18px;border-radius:100px;margin-top:6px;width:fit-content}
+.bn-accent-shape{position:absolute;right:5%;top:50%;transform:translateY(-50%);width:32%;aspect-ratio:1;border-radius:50%;opacity:.12}
+.bn-insta{width:100%;aspect-ratio:1/1;max-width:320px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:7%}
+.bn-insta .bn-content{position:relative;z-index:2}
+.insta-tag{font-size:.55rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:3px 9px;border-radius:100px;display:inline-block;margin-bottom:8px}
+.insta-headline{font-family:'Fraunces',serif;font-size:clamp(1.2rem,4vw,2rem);font-weight:600;line-height:1.1;letter-spacing:-.02em;margin-bottom:7px}
+.insta-sub{font-size:.68rem;opacity:.7;line-height:1.5}
+.insta-footer{display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:10px}
+.insta-handle{font-size:.6rem;font-weight:600;letter-spacing:.08em;opacity:.6}
+.insta-btn{font-size:.6rem;font-weight:700;letter-spacing:.08em;padding:6px 14px;border-radius:100px}
+.bn-story{width:100%;aspect-ratio:9/16;max-width:200px;position:relative;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:6%}
+.st-top{position:absolute;top:6%;left:6%;right:6%;display:flex;align-items:center;justify-content:space-between;z-index:2}
+.st-prog{display:flex;gap:3px}.st-bar{height:2px;flex:1;border-radius:2px;opacity:.6}
+.st-content{position:relative;z-index:2}
+.st-tag{font-size:.52rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 7px;border-radius:100px;display:inline-block;margin-bottom:6px}
+.st-headline{font-family:'Fraunces',serif;font-size:clamp(1rem,3.5vw,1.4rem);font-weight:600;line-height:1.1;letter-spacing:-.02em;margin-bottom:5px}
+.preview-items-row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-start}
+.preview-item{display:flex;flex-direction:column;gap:5px}
+
+/* ══ PHOTO PREVIEW ══ */
+.photo-controls{background:var(--s2);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;margin-bottom:18px}
+.photo-controls-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.pc-field{display:flex;flex-direction:column;gap:4px}
+.pc-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+/* ② textarea で段落対応 */
+.pc-input,.pc-textarea{background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.75rem;padding:6px 10px;width:100%;outline:none;transition:border-color .2s;resize:vertical}
+.pc-input:focus,.pc-textarea:focus{border-color:var(--accent)}
+.pc-textarea{min-height:52px;line-height:1.5}
+.pc-row-full{grid-column:1/-1}
+
+/* px設定・保存ボタン ⑥④ */
+.save-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:14px;padding:12px 14px;background:var(--s2);border:1px solid var(--border);border-radius:var(--r2)}
+.save-bar-label{font-size:.6rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.save-px-input{background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.72rem;padding:5px 9px;width:74px;outline:none;text-align:center}
+.save-px-input:focus{border-color:var(--accent)}
+.save-btn{font-size:.65rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:7px 15px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
+.save-btn:hover{background:var(--accent);color:#0A0A0C;border-color:transparent}
+.save-btn.primary{background:var(--accent);color:#0A0A0C;border-color:transparent}
+
+/* ⑤ ドラッグ可能テキスト層 */
+.photo-frame-wrap{position:relative;display:inline-block;width:100%}
+.photo-frame{border-radius:11px;overflow:hidden;position:relative;box-shadow:0 14px 40px rgba(0,0,0,.5);user-select:none}
+.photo-img-bg{width:100%;display:block;object-fit:cover}
+.drag-text-layer{position:absolute;cursor:move;z-index:10;touch-action:none;padding:4px;border-radius:4px;transition:outline .1s}
+.drag-text-layer:hover{outline:1.5px dashed rgba(255,255,255,.45)}
+.drag-text-layer.dragging{outline:1.5px solid var(--accent);opacity:.92}
+.drag-handle-hint{position:absolute;top:-16px;left:0;font-size:.52rem;color:var(--accent);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;background:rgba(10,10,12,.7);padding:1px 5px;border-radius:3px}
+.drag-text-layer:hover .drag-handle-hint{opacity:1}
+.photo-pattern-item{display:flex;flex-direction:column;gap:6px;margin-bottom:22px}
+.photo-pattern-label{font-size:.6rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:flex;align-items:center;justify-content:space-between}
+
+/* ══ COPY / GUIDE ══ */
+.copy-bar{display:flex;gap:7px;flex-wrap:wrap;margin-top:18px;padding:14px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2)}
+.copy-btn{font-size:.65rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:8px 15px;border-radius:7px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;transition:all .18s}
+.copy-btn:hover,.copy-btn.primary{background:var(--accent);color:#0A0A0C;border-color:transparent}
+.guide-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media(max-width:700px){.guide-grid{grid-template-columns:1fr 1fr}}
+.guide-card{background:var(--s2);border-radius:var(--r2);padding:12px;border:1px solid var(--border)}
+.guide-role-tag{display:inline-block;font-size:.56rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:100px;margin-bottom:7px}
+.guide-desc{font-size:.65rem;color:var(--muted);line-height:1.6;font-family:'Noto Sans JP',sans-serif;font-weight:300}
+.guide-swatches{display:flex;gap:5px;margin-top:7px;flex-wrap:wrap;align-items:center}
+.guide-sw{width:24px;height:24px;border-radius:50%;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.1);transition:transform .15s}
+.guide-sw:hover{transform:scale(1.18)}
+
+/* ══ EMPTY / TOAST / ANIM ══ */
+.empty-hint{text-align:center;padding:60px 20px;color:var(--muted);font-size:.78rem;line-height:1.8}
+.empty-hint .eh-icon{font-size:2.5rem;margin-bottom:12px;display:block;opacity:.4}
+.toast{position:fixed;bottom:26px;left:50%;transform:translateX(-50%) translateY(16px);background:var(--text);color:var(--bg);font-size:.75rem;font-weight:600;letter-spacing:.06em;padding:10px 22px;border-radius:100px;opacity:0;pointer-events:none;z-index:10000;white-space:nowrap;transition:opacity .2s,transform .2s}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeUp .32s ease both}
+.no-photo-hint{background:var(--s2);border:1px dashed var(--border2);border-radius:var(--r2);padding:28px;text-align:center;color:var(--muted);font-size:.75rem;line-height:1.8;margin-bottom:16px}
+
+/* ══ IMAGE COLOR PICKER UI ══ */
+.rec-color-card{border-radius:10px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all .18s;margin-bottom:0}
+.rec-color-card:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.rec-color-card.selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,169,110,.25)}
+.rec-demo{padding:11px 14px;display:flex;flex-direction:column;gap:3px;position:relative}
+.rec-demo-headline{font-family:'Fraunces',serif;font-size:.95rem;font-weight:600;letter-spacing:-.01em;line-height:1.1}
+.rec-demo-sub{font-size:.62rem;line-height:1.4;opacity:.75}
+.rec-meta{display:flex;align-items:center;justify-content:space-between;padding:7px 14px;background:rgba(0,0,0,.25)}
+.rec-meta-left{display:flex;align-items:center;gap:8px}
+.rec-dot{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);flex-shrink:0}
+.rec-hex{font-size:.6rem;font-weight:700;letter-spacing:.06em;font-family:'DM Sans',monospace}
+.rec-name{font-size:.58rem;color:rgba(255,255,255,.55);margin-top:1px}
+.rec-wcag{font-size:.52rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:2px 7px;border-radius:100px}
+.rec-wcag.aaa{background:rgba(80,200,80,.18);color:#5CE05C}
+.rec-wcag.aa{background:rgba(220,180,60,.18);color:#D4B040}
+.rec-wcag.fail{background:rgba(220,70,70,.18);color:#E05858}
+.rec-selected-mark{position:absolute;top:7px;right:9px;font-size:.65rem;background:var(--accent);color:#0A0A0C;border-radius:100px;padding:2px 7px;font-weight:700;letter-spacing:.04em}
+
+/* ══ IMAGE PREVIEW CARDS ══ */
+.img-prev-card{border-radius:12px;overflow:hidden;box-shadow:0 12px 36px rgba(0,0,0,.5);position:relative;cursor:pointer}
+.img-prev-card img{width:100%;display:block;object-fit:cover}
+.img-text-overlay{position:absolute;z-index:2;pointer-events:none}
+.img-text-overlay.pos-bl{bottom:7%;left:7%;right:7%}
+.img-text-overlay.pos-cc{top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;width:82%}
+.img-text-overlay.pos-tl{top:7%;left:7%;right:7%}
+.img-ov-grad-b{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.72) 0%,rgba(0,0,0,.08) 55%,transparent 100%);pointer-events:none}
+.img-ov-dark{position:absolute;inset:0;background:rgba(0,0,0,.38);pointer-events:none}
+.img-prev-label{font-size:.58rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.img-prev-item{display:flex;flex-direction:column;gap:5px}
+
+/* ══ COLOR PICKER TAB ══ */
+.picker-layout{display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start}
+@media(max-width:780px){.picker-layout{grid-template-columns:1fr}}
+.cp-panel{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;position:sticky;top:0}
+.cp-panel-head{padding:12px 16px;border-bottom:1px solid var(--border);font-size:.65rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.cp-panel-body{padding:16px}
+.cp-sv-box{width:100%;aspect-ratio:5/3;border-radius:9px;position:relative;cursor:crosshair;overflow:hidden;margin-bottom:12px;touch-action:none}
+.cp-sv-white{position:absolute;inset:0;background:linear-gradient(to right,#fff,transparent)}
+.cp-sv-black{position:absolute;inset:0;background:linear-gradient(to top,#000,transparent)}
+.cp-sv-cursor{position:absolute;width:14px;height:14px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.5),0 2px 8px rgba(0,0,0,.4);transform:translate(-50%,-50%);pointer-events:none}
+.cp-hue-row{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.cp-hue-track{flex:1;height:16px;border-radius:100px;background:linear-gradient(to right,#f00,#ff0,#0f0,#0ff,#00f,#f0f,#f00);position:relative;cursor:pointer;touch-action:none}
+.cp-hue-thumb{position:absolute;top:50%;width:20px;height:20px;border-radius:50%;border:2.5px solid #fff;box-shadow:0 0 0 1.5px rgba(0,0,0,.4),0 2px 8px rgba(0,0,0,.3);transform:translate(-50%,-50%);pointer-events:none}
+.cp-inputs{display:flex;gap:7px;margin-bottom:14px;align-items:stretch}
+.cp-preview-box{width:40px;height:36px;border-radius:7px;flex-shrink:0;border:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,.3)}
+.cp-hex-input{flex:1;background:var(--s3);border:1px solid var(--border);border-radius:7px;color:var(--text);font-family:'DM Sans',monospace;font-size:.8rem;padding:0 10px;outline:none;transition:border-color .2s;letter-spacing:.06em}
+.cp-hex-input:focus{border-color:var(--accent)}
+.cp-presets{display:flex;flex-wrap:wrap;gap:6px}
+.cp-preset{width:26px;height:26px;border-radius:6px;cursor:pointer;border:1.5px solid rgba(255,255,255,.12);transition:transform .15s,box-shadow .15s;flex-shrink:0}
+.cp-preset:hover{transform:scale(1.18);box-shadow:0 3px 10px rgba(0,0,0,.4)}
+.compat-section{display:flex;flex-direction:column;gap:20px}
+.harmony-block{background:var(--s1);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.harmony-head{padding:12px 16px;border-bottom:1px solid var(--border);display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.harmony-name{font-size:.7rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+.harmony-desc{font-size:.62rem;color:var(--muted);line-height:1.5;flex:1}
+.harmony-body{padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.h-strip{display:flex;height:52px;border-radius:9px;overflow:hidden;gap:2px}
+.h-strip-seg{flex:1;position:relative;transition:flex .25s cubic-bezier(.4,0,.2,1);cursor:pointer}
+.h-strip-seg:hover{flex:2}
+.h-strip-seg::after{content:attr(data-hex);position:absolute;bottom:5px;left:50%;transform:translateX(-50%);font-size:.5rem;font-weight:700;letter-spacing:.05em;color:transparent;transition:color .15s;white-space:nowrap;pointer-events:none;text-shadow:0 1px 4px rgba(0,0,0,.6)}
+.h-strip-seg:hover::after{color:rgba(255,255,255,.9)}
+.h-swatches{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
+.h-swatch{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;transition:transform .15s;min-width:44px}
+.h-swatch:hover{transform:translateY(-2px)}
+.h-swatch-dot{width:38px;height:38px;border-radius:50%;box-shadow:0 3px 10px rgba(0,0,0,.4);border:1.5px solid rgba(255,255,255,.1)}
+.h-swatch-hex{font-size:.52rem;color:var(--muted);letter-spacing:.05em;font-family:'DM Sans',monospace}
+.h-swatch-role{font-size:.5rem;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.07em}
+.h-ui-mock{display:flex;gap:8px;flex-wrap:wrap;padding:12px 14px;border-radius:8px;border:1px solid var(--border);align-items:center}
+.h-ui-btn{padding:8px 16px;border-radius:7px;border:none;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;letter-spacing:.05em;cursor:default}
+.h-ui-badge{padding:4px 10px;border-radius:100px;font-size:.6rem;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.h-ui-card{border-radius:8px;padding:12px 14px;flex:1 1 140px}
+.h-ui-card-title{font-family:'Fraunces',serif;font-size:.9rem;font-weight:600;margin-bottom:4px;line-height:1.2}
+.h-ui-card-text{font-size:.62rem;opacity:.7;line-height:1.5}
+.hue-wheel-wrap{position:relative;width:110px;height:110px;flex-shrink:0}
+.hue-dot{position:absolute;width:12px;height:12px;border-radius:50%;border:2px solid #fff;box-shadow:0 1px 6px rgba(0,0,0,.5);transform:translate(-50%,-50%);pointer-events:none}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Color <span>Advisor</span></div>
+  <div class="mode-toggle">
+    <button class="mt-btn active" onclick="switchMode('theme',this)">🎨 テーマから選ぶ</button>
+    <button class="mt-btn" onclick="switchMode('image',this)">🖼 画像から抽出</button>
+  </div>
+</header>
+
+<div class="app-wrap">
+  <!-- ① SIDEBAR FIXED -->
+  <div class="sidebar">
+    <div class="sidebar-scroll">
+
+      <!-- テーマモード -->
+      <div class="mode-panel active" id="modeTheme">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">雰囲気・テーマを選ぶ</span></div>
+          <div class="panel-body">
+            <div class="theme-grid" id="themeGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 画像モード：文字色セレクター -->
+      <div class="mode-panel" id="modeImage">
+        <div class="panel">
+          <div class="panel-head"><span class="panel-title">📷 画像に合う文字色を選ぶ</span></div>
+          <div class="panel-body">
+            <!-- アップロードゾーン -->
+            <div class="upload-zone" id="uploadZone">
+              <input type="file" accept="image/*" id="imgInput" onchange="handleImageUpload(event)">
+              <span class="upload-icon" id="uploadIcon">📷</span>
+              <div class="upload-text" id="uploadText">写真をアップロード<br><span style="font-size:.62rem;opacity:.6">クリック or ドラッグ&ドロップ</span></div>
+            </div>
+            <img id="previewImg" class="upload-preview" alt="">
+
+            <!-- 画像アップ後に表示 -->
+            <div id="imgColorPanel" style="display:none">
+              <div class="sec-divider"></div>
+
+              <!-- 画像の明暗分析 -->
+              <div class="sec-title">📊 画像の明暗分析</div>
+              <div id="imgBrightnessBar" style="height:10px;border-radius:5px;margin-bottom:6px;background:linear-gradient(to right,#000,#fff)"></div>
+              <div id="imgBrightnessInfo" style="font-size:.62rem;color:var(--muted);margin-bottom:12px;line-height:1.6"></div>
+
+              <!-- 推奨文字色 -->
+              <div class="sec-title">✦ 推奨文字色</div>
+              <div id="recommendedColors" style="display:flex;flex-direction:column;gap:7px;margin-bottom:14px"></div>
+
+              <!-- カスタム文字色 -->
+              <div class="sec-title" style="margin-top:4px">🎨 色を自分で選ぶ</div>
+              <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap">
+                <input type="color" id="customColorPicker" value="#ffffff" oninput="onCustomColor(this.value)" style="width:40px;height:34px;border:none;background:none;cursor:pointer;border-radius:6px;padding:2px">
+                <input type="text" id="customColorHex" value="#ffffff" oninput="onCustomHexInput(this.value)" style="background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:.75rem;padding:6px 10px;width:96px;outline:none;font-family:'DM Sans',monospace">
+                <button onclick="applyCustomColor()" style="background:var(--accent);color:#0A0A0C;border:none;border-radius:6px;font-size:.65rem;font-weight:700;letter-spacing:.07em;padding:7px 14px;cursor:pointer;white-space:nowrap">適用</button>
+              </div>
+
+              <!-- テキストサンプルオプション -->
+              <div class="sec-title">📝 サンプルテキスト設定</div>
+              <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px">
+                <textarea id="imgTextSample" rows="2" oninput="refreshImagePreview()" style="background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.75rem;padding:6px 10px;resize:vertical;outline:none;line-height:1.5" placeholder="見出しテキスト">最高の瞬間を、あなたと。</textarea>
+                <input type="text" id="imgSubSample" value="サブコピーがここに入ります" oninput="refreshImagePreview()" style="background:var(--s3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:.75rem;padding:6px 10px;outline:none">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 現在のパレット -->
+      <div class="panel" id="currentPalettePanel" style="display:none">
+        <div class="panel-head">
+          <span class="panel-title">選択中のパレット</span>
+          <span id="paletteName" style="font-size:.68rem;color:var(--accent);font-weight:600"></span>
+        </div>
+        <div class="panel-body">
+          <div class="palette-bar" id="paletteBar"></div>
+          <div class="swatch-row" id="swatchRow"></div>
+          <div class="sec-divider"></div>
+          <div class="sec-title">UI別の使い方</div>
+          <div class="use-guide" id="useGuide"></div>
+          <div class="sec-divider"></div>
+          <div class="tc-checker">
+            <div class="tc-checker-title"><span class="tct-icon">Aa</span>文字色チェッカー</div>
+            <div class="tc-pairs" id="tcPairs"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- MAIN AREA -->
+  <div class="main-area">
+    <div id="mainEmpty" class="empty-hint">
+      <span class="eh-icon">✦</span>
+      左でテーマを選ぶか写真をアップロードすると<br>プレビューが表示されます
+    </div>
+
+    <!-- 画像モード：文字色プレビュー -->
+    <div id="imgPreviewPanel" style="display:none">
+      <div class="sec-title" style="margin-bottom:14px">🖼 画像 + 文字色プレビュー</div>
+
+      <!-- 選択中の文字色バッジ -->
+      <div id="selectedColorBadge" style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding:10px 14px;background:var(--s1);border:1px solid var(--border);border-radius:var(--r2)">
+        <div id="selectedColorDot" style="width:28px;height:28px;border-radius:50%;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,.4);flex-shrink:0"></div>
+        <div>
+          <div style="font-size:.62rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)">選択中の文字色</div>
+          <div id="selectedColorHex" style="font-size:.88rem;font-weight:600;color:var(--text);letter-spacing:.04em;font-family:'DM Sans',monospace">#FFFFFF</div>
+        </div>
+        <div id="selectedColorWcag" style="margin-left:auto;font-size:.6rem;font-weight:800;padding:4px 10px;border-radius:100px"></div>
+        <button onclick="copyHex(document.getElementById('selectedColorHex').textContent)" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.62rem;font-weight:600;letter-spacing:.07em;padding:5px 12px;border-radius:6px;cursor:pointer">コピー</button>
+      </div>
+
+      <!-- プレビューグリッド -->
+      <div id="imgPreviewGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px"></div>
+
+      <!-- 保存バー -->
+      <div class="save-bar" style="margin-top:20px">
+        <span class="save-bar-label">書き出しサイズ:</span>
+        <input class="save-px-input" id="imgExportW" value="1200" type="number" min="100" max="4000" step="100">
+        <span class="save-bar-label">×</span>
+        <input class="save-px-input" id="imgExportH" value="630" type="number" min="100" max="4000" step="100">
+        <button class="save-btn" onclick="saveImgPreview('png')">💾 PNG</button>
+        <button class="save-btn primary" onclick="saveImgPreview('jpg')">💾 JPG</button>
+      </div>
+    </div>
+
+    <div id="mainContent" style="display:none">
+      <div class="preview-tabs" id="previewTabs">
+        <button class="prev-tab active" onclick="switchPreview('all',this)">すべて</button>
+        <button class="prev-tab" onclick="switchPreview('banner',this)">🖥 バナー</button>
+        <button class="prev-tab" onclick="switchPreview('insta',this)">📸 Instagram</button>
+        <button class="prev-tab" onclick="switchPreview('story',this)">📱 ストーリー</button>
+        <button class="prev-tab" onclick="switchPreview('photo',this)">🖼 写真プレビュー</button>
+        <button class="prev-tab" onclick="switchPreview('picker',this)">🎨 色の相性チェッカー</button>
+        <button class="prev-tab" onclick="switchPreview('guide',this)">📋 ガイド</button>
+      </div>
+      <div id="previewContent" class="fade-in"></div>
+      <div class="copy-bar">
+        <button class="copy-btn primary" onclick="copyAllHex()">📋 全色コピー</button>
+        <button class="copy-btn" onclick="copyCSS()">💻 CSS変数</button>
+        <button class="copy-btn" onclick="copyFigma()">🎨 Figma</button>
+        <button class="copy-btn" onclick="copyJSON()">{ } JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<canvas id="offscreen" style="display:none"></canvas>
+
+<script>
+/* ══════════════════════
+   THEMES
+══════════════════════ */
+const THEMES=[
+  {id:'minimal-luxury',name:'ミニマルラグジュアリー',mood:'上品・高級感',prev:['#F5F0E8','#C8A96E','#1A1510'],palette:[{hex:'#F5F0E8',role:'BG',name:'Ivory'},{hex:'#EDE5D5',role:'Surface',name:'Warm Linen'},{hex:'#C8A96E',role:'Primary',name:'Gold'},{hex:'#A07848',role:'Accent',name:'Bronze'},{hex:'#3A2E22',role:'Text',name:'Espresso'},{hex:'#1A1510',role:'Dark',name:'Ink Black'}],mood_desc:'高級ブランド・ジュエリー・美容サロンに。ゴールドと象牙色の組み合わせが信頼感と高級感を演出。'},
+  {id:'fresh-modern',name:'フレッシュモダン',mood:'爽やか・信頼感',prev:['#EBF5FF','#2E7DD4','#F0F4F8'],palette:[{hex:'#EBF5FF',role:'BG',name:'Sky White'},{hex:'#B8D8F8',role:'Surface',name:'Pale Blue'},{hex:'#2E7DD4',role:'Primary',name:'Cobalt'},{hex:'#1A52A0',role:'Accent',name:'Navy'},{hex:'#F0F4F8',role:'Light',name:'Ice'},{hex:'#0A1828',role:'Dark',name:'Midnight'}],mood_desc:'テック・医療・SaaS・コーポレートサイトに。青系の清潔感ある配色で信頼と誠実さを表現。'},
+  {id:'warm-organic',name:'ウォームオーガニック',mood:'温かい・自然',prev:['#FBF5ED','#D4845A','#6A8C58'],palette:[{hex:'#FBF5ED',role:'BG',name:'Cream'},{hex:'#E8D5B8',role:'Surface',name:'Sand'},{hex:'#D4845A',role:'Primary',name:'Terracotta'},{hex:'#6A8C58',role:'Accent',name:'Sage'},{hex:'#8B6040',role:'Text',name:'Bark'},{hex:'#2A1A0E',role:'Dark',name:'Espresso'}],mood_desc:'フード・カフェ・ナチュラルコスメ・ウェルネスに。土と植物の色が温かさとオーガニックな世界観を作る。'},
+  {id:'bold-pop',name:'ボールドポップ',mood:'個性的・インパクト',prev:['#FF3A5C','#FFE040','#0038FF'],palette:[{hex:'#FFFFFF',role:'BG',name:'White'},{hex:'#FF3A5C',role:'Primary',name:'Hot Red'},{hex:'#FFE040',role:'Accent',name:'Electric Yellow'},{hex:'#0038FF',role:'Sub',name:'Klein Blue'},{hex:'#1A1A1A',role:'Dark',name:'Jet'},{hex:'#F5F5F5',role:'Light',name:'Off White'}],mood_desc:'ファッション・イベント・音楽・アート系に。原色の組み合わせで目を引く強烈なインパクトを与える。'},
+  {id:'dark-neon',name:'ダークネオン',mood:'クール・近未来',prev:['#0A0C18','#00E5C8','#FF3CAC'],palette:[{hex:'#0A0C18',role:'BG',name:'Void'},{hex:'#141830',role:'Surface',name:'Deep Navy'},{hex:'#00E5C8',role:'Primary',name:'Aqua Neon'},{hex:'#FF3CAC',role:'Accent',name:'Pink Neon'},{hex:'#7B61FF',role:'Sub',name:'Violet'},{hex:'#C0C8D8',role:'Light',name:'Steel'}],mood_desc:'ゲーム・テック・デジタルアート・クラブ系に。ダーク背景に光るネオンカラーが未来的な世界観を作る。'},
+  {id:'soft-pastel',name:'ソフトパステル',mood:'優しい・かわいい',prev:['#FFF0F5','#F8C8D8','#C8E8D0'],palette:[{hex:'#FFF8FC',role:'BG',name:'Petal White'},{hex:'#F8C8D8',role:'Primary',name:'Rose Petal'},{hex:'#C8E8D0',role:'Accent',name:'Mint'},{hex:'#D8C8F0',role:'Sub',name:'Lavender'},{hex:'#F8E0A8',role:'Warm',name:'Butter'},{hex:'#4A3858',role:'Dark',name:'Deep Plum'}],mood_desc:'スイーツ・育児・美容・ライフスタイル系に。やわらかいパステルの組み合わせで親しみやすさと可愛さを表現。'},
+  {id:'earthy-sage',name:'アーシーセージ',mood:'落ち着き・洗練',prev:['#F2EDE4','#8A9E78','#5A6840'],palette:[{hex:'#F2EDE4',role:'BG',name:'Oat'},{hex:'#DDD5C0',role:'Surface',name:'Flax'},{hex:'#8A9E78',role:'Primary',name:'Sage'},{hex:'#5A6840',role:'Accent',name:'Olive'},{hex:'#C8A870',role:'Warm',name:'Wheat'},{hex:'#2A2018',role:'Dark',name:'Dark Oak'}],mood_desc:'インテリア・フラワー・料理・ライフスタイルに。ミュートされたセージとオークルの組み合わせが洗練された大人のムードを作る。'},
+  {id:'night-romance',name:'ナイトロマンス',mood:'神秘・エレガント',prev:['#120820','#8A4A9E','#E8C0F0'],palette:[{hex:'#120820',role:'BG',name:'Midnight'},{hex:'#1E1030',role:'Surface',name:'Deep Violet'},{hex:'#8A4A9E',role:'Primary',name:'Amethyst'},{hex:'#E8C0F0',role:'Accent',name:'Lavender Mist'},{hex:'#C8A060',role:'Gold',name:'Antique Gold'},{hex:'#F4EEF8',role:'Light',name:'Ghost White'}],mood_desc:'ウェディング・ラグジュアリーイベント・美容・香水に。深い紫とゴールドの組み合わせが神秘的なエレガンスを演出。'},
+];
+
+/* ══ STATE ══ */
+let currentPalette=null,currentMode='theme',currentPreview='all';
+let uploadedImageSrc=null;
+/* ドラッグ状態 */
+let _drag={el:null,ox:0,oy:0,sx:0,sy:0};
+
+/* ══ INIT ══ */
+function init(){
+  buildThemeGrid();
+  setupDragDrop();
+}
+function buildThemeGrid(){
+  const g=document.getElementById('themeGrid');
+  THEMES.forEach(t=>{
+    const c=document.createElement('div'); c.className='theme-card'; c.dataset.id=t.id;
+    c.innerHTML=`<div class="tc-preview">${t.prev.map(x=>`<span style="background:${x}"></span>`).join('')}</div><div class="tc-label"><div class="tc-name">${t.name}</div><div class="tc-mood">${t.mood}</div></div>`;
+    c.onclick=()=>selectTheme(t.id); g.appendChild(c);
+  });
+}
+
+/* ══ MODE SWITCH ══ */
+function switchMode(mode,btn){
+  currentMode=mode;
+  document.querySelectorAll('.mt-btn').forEach(b=>b.classList.toggle('active',b===btn));
+  document.getElementById('modeTheme').classList.toggle('active',mode==='theme');
+  document.getElementById('modeImage').classList.toggle('active',mode==='image');
+  if(mode==='image'){
+    // 画像モードに切り替え時
+    document.getElementById('mainContent').style.display='none';
+    if(uploadedImageSrc){
+      document.getElementById('mainEmpty').style.display='none';
+      document.getElementById('imgPreviewPanel').style.display='block';
+    } else {
+      document.getElementById('mainEmpty').style.display='block';
+      document.getElementById('imgPreviewPanel').style.display='none';
+    }
+  } else {
+    // テーマモードに切り替え時
+    document.getElementById('imgPreviewPanel').style.display='none';
+    if(currentPalette){
+      document.getElementById('mainEmpty').style.display='none';
+      document.getElementById('mainContent').style.display='block';
+    } else {
+      document.getElementById('mainEmpty').style.display='block';
+    }
+  }
+}
+
+/* ══ THEME SELECT ══ */
+function selectTheme(id){
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.toggle('selected',c.dataset.id===id));
+  const t=THEMES.find(x=>x.id===id);
+  currentPalette={name:t.name,colors:t.palette,desc:t.mood_desc};
+  renderPalettePanel(); renderPreviews();
+}
+
+/* ══ IMAGE UPLOAD + TEXT COLOR MODE ══ */
+let selectedTextColor = '#FFFFFF';
+let imgAvgBrightness = 0;
+
+function handleImageUpload(e){
+  const file=e.target.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    uploadedImageSrc=ev.target.result;
+    const img=document.getElementById('previewImg');
+    img.src=ev.target.result; img.style.display='block';
+    img.style.maxHeight='160px'; img.style.marginTop='10px';
+    img.onload=()=>analyzeImageAndSuggestColors(img);
+    document.getElementById('uploadIcon').style.display='none';
+    document.getElementById('uploadText').style.display='none';
+  };
+  reader.readAsDataURL(file);
+}
+
+function analyzeImageAndSuggestColors(imgEl){
+  const canvas=document.getElementById('offscreen'),ctx=canvas.getContext('2d');
+  canvas.width=80; canvas.height=80;
+  ctx.drawImage(imgEl,0,0,80,80);
+  const data=ctx.getImageData(0,0,80,80).data;
+
+  // 画像全体の平均輝度・明暗エリアを分析
+  let totalLum=0, lightCount=0, darkCount=0;
+  const regionLum={tl:0,tr:0,bl:0,br:0,cc:0}; const regionN={tl:0,tr:0,bl:0,br:0,cc:0};
+  for(let y=0;y<80;y++){for(let x=0;x<80;x++){
+    const i=(y*80+x)*4;
+    const r=data[i],g=data[i+1],b=data[i+2];
+    const lum=(0.299*r+0.587*g+0.114*b)/255;
+    totalLum+=lum;
+    if(lum>0.5)lightCount++;else darkCount++;
+    const rx=x<27?'l':x>53?'r':'c', ry=y<27?'t':y>53?'b':'c';
+    const region=ry==='c'&&rx==='c'?'cc':ry+rx;
+    if(regionLum[region]!==undefined){regionLum[region]+=lum;regionN[region]++;}
+  }}
+  const totalPx=80*80;
+  imgAvgBrightness=totalLum/totalPx;
+  const lightRatio=lightCount/totalPx;
+  const darkRatio=darkCount/totalPx;
+
+  // 明暗インジケーター
+  const bar=document.getElementById('imgBrightnessBar');
+  const indicator=Math.round(imgAvgBrightness*100);
+  bar.style.background=`linear-gradient(to right, #000 0%, #888 ${indicator}%, #fff 100%)`;
+  bar.style.position='relative';
+
+  const info=document.getElementById('imgBrightnessInfo');
+  let brightnessLabel=imgAvgBrightness<0.35?'暗め（ダーク系）':imgAvgBrightness<0.55?'中間調':imgAvgBrightness<0.72?'明るめ':'非常に明るい';
+  info.innerHTML=`平均輝度: <strong>${brightnessLabel}</strong> (${Math.round(imgAvgBrightness*100)}%)<br>
+    明るい領域: ${Math.round(lightRatio*100)}% ／ 暗い領域: ${Math.round(darkRatio*100)}%<br>
+    <span style="opacity:.7">全体の明暗バランスから最適な文字色を推奨しています</span>`;
+
+  // 推奨文字色候補を生成
+  const candidates=[
+    {hex:'#FFFFFF',name:'ピュアホワイト',note:'コントラスト最大。暗い画像に最適'},
+    {hex:'#F5F0E8',name:'ウォームホワイト',note:'柔らかい白。自然・温かみのある画像に'},
+    {hex:'#F0F5FF',name:'クールホワイト',note:'青みがかった白。清潔・モダンな印象'},
+    {hex:'#000000',name:'ジェットブラック',note:'明るい画像に最大コントラスト'},
+    {hex:'#1A1A1A',name:'ソフトブラック',note:'純黒より柔らかい。明るい背景に最適'},
+    {hex:'#2A2018',name:'ウォームブラック',note:'茶みがかった黒。温かみのある画像に'},
+    {hex:'#FFEE99',name:'ゴールドイエロー',note:'インパクト。ダーク系の画像にアクセントとして'},
+    {hex:'#99DDFF',name:'スカイブルー',note:'爽やかな印象。ダークな空や森の画像に'},
+    {hex:'#FFCCAA',name:'サーモンピンク',note:'温かみ。夕景・食事・自然の写真に'},
+    {hex:'#CCFFCC',name:'ミントグリーン',note:'フレッシュ。植物・自然系の画像に'},
+    {hex:'#E8C8FF',name:'ラベンダー',note:'柔らかく上品。花・空・インテリアに'},
+    {hex:'#FFD700',name:'ゴールド',note:'高級感。黒・ダーク系背景に映える'},
+  ];
+
+  // コントラスト比を計算して推奨順にソート
+  // 画像の平均色を代表背景色として使う
+  const avgHex=`#${Math.round(data[0]/1.2).toString(16).padStart(2,'0')}${Math.round(data[1]/1.2).toString(16).padStart(2,'0')}${Math.round(data[2]/1.2).toString(16).padStart(2,'0')}`;
+
+  // 各エリアの平均輝度から代表輝度を算出
+  const avgLumObj=Object.fromEntries(Object.keys(regionLum).map(k=>[k,(regionN[k]>0?regionLum[k]/regionN[k]:imgAvgBrightness)]));
+
+  const scored=candidates.map(c=>{
+    const r2=contrastRatio(c.hex, avgHex.length===7?avgHex:'#808080');
+    return {...c, ratio: r2};
+  }).sort((a,b)=>b.ratio-a.ratio);
+
+  // トップ推奨 + 全候補表示
+  const cont=document.getElementById('recommendedColors');
+  cont.innerHTML='';
+
+  // 自動選択：最もコントラストが高い色
+  const autoSelect= imgAvgBrightness < 0.5 ? '#FFFFFF' : '#1A1A1A';
+  selectedTextColor=autoSelect;
+
+  scored.forEach((c,i)=>{
+    const lv=wcagLevel(c.ratio);
+    const card=document.createElement('div');
+    card.className='rec-color-card'+(c.hex===autoSelect?' selected':'');
+    card.dataset.hex=c.hex;
+    const sampleBg=imgAvgBrightness<0.5?'#1A1A1A':'#f0f0f0';
+    card.innerHTML=`
+      <div class="rec-demo" style="background:${sampleBg}">
+        ${c.hex===autoSelect?'<span class="rec-selected-mark">✓ 推奨</span>':''}
+        <div class="rec-demo-headline" style="color:${c.hex}">見出しテキスト</div>
+        <div class="rec-demo-sub" style="color:${c.hex}">${c.note}</div>
+      </div>
+      <div class="rec-meta">
+        <div class="rec-meta-left">
+          <div class="rec-dot" style="background:${c.hex}"></div>
+          <div><div class="rec-hex">${c.hex}</div><div class="rec-name">${c.name}</div></div>
+        </div>
+        <span class="rec-wcag ${lv.cls}">${lv.label} ${c.ratio.toFixed(1)}:1</span>
+      </div>`;
+    card.onclick=()=>selectTextColor(c.hex,card);
+    cont.appendChild(card);
+  });
+
+  document.getElementById('imgColorPanel').style.display='block';
+  document.getElementById('customColorPicker').value=autoSelect;
+  document.getElementById('customColorHex').value=autoSelect;
+
+  // メインエリアを切り替え
+  document.getElementById('mainEmpty').style.display='none';
+  document.getElementById('mainContent').style.display='none';
+  document.getElementById('imgPreviewPanel').style.display='block';
+
+  updateSelectedBadge(autoSelect);
+  buildImgPreviewCards();
+}
+
+function selectTextColor(hex, cardEl){
+  selectedTextColor=hex;
+  document.querySelectorAll('.rec-color-card').forEach(c=>{
+    c.classList.toggle('selected',c===cardEl);
+    const mark=c.querySelector('.rec-selected-mark');
+    if(mark)mark.remove();
+  });
+  if(cardEl){
+    const demo=cardEl.querySelector('.rec-demo');
+    const mark=document.createElement('span');
+    mark.className='rec-selected-mark'; mark.textContent='✓ 選択中';
+    demo.appendChild(mark);
+  }
+  document.getElementById('customColorPicker').value=hex;
+  document.getElementById('customColorHex').value=hex;
+  updateSelectedBadge(hex);
+  buildImgPreviewCards();
+}
+
+function onCustomColor(hex){
+  document.getElementById('customColorHex').value=hex;
+}
+function onCustomHexInput(val){
+  if(/^#[0-9A-Fa-f]{6}$/.test(val)){
+    document.getElementById('customColorPicker').value=val;
+  }
+}
+function applyCustomColor(){
+  const hex=document.getElementById('customColorHex').value;
+  if(!/^#[0-9A-Fa-f]{6}$/.test(hex)){showToast('正しいHEX形式で入力してください (#RRGGBB)');return;}
+  // deselect all cards
+  document.querySelectorAll('.rec-color-card').forEach(c=>{
+    c.classList.remove('selected');
+    const mark=c.querySelector('.rec-selected-mark');if(mark)mark.remove();
+  });
+  selectedTextColor=hex;
+  updateSelectedBadge(hex);
+  buildImgPreviewCards();
+  showToast(`${hex} を文字色に適用しました`);
+}
+
+function updateSelectedBadge(hex){
+  document.getElementById('selectedColorDot').style.background=hex;
+  document.getElementById('selectedColorHex').textContent=hex;
+  // コントラスト比を背景画像の平均輝度で計算
+  const bgApprox=imgAvgBrightness>0.5?'#FFFFFF':'#000000';
+  const ratio=contrastRatio(hex,bgApprox);
+  const lv=wcagLevel(ratio);
+  const badge=document.getElementById('selectedColorWcag');
+  badge.textContent=`${lv.label} ${ratio.toFixed(1)}:1`;
+  badge.className='';badge.style.cssText=`font-size:.6rem;font-weight:800;padding:4px 10px;border-radius:100px;background:${lv.cls==='aaa'?'rgba(80,200,80,.18)':lv.cls==='aa'?'rgba(220,180,60,.18)':'rgba(220,70,70,.18)'};color:${lv.cls==='aaa'?'#5CE05C':lv.cls==='aa'?'#D4B040':'#E05858'}`;
+}
+
+function refreshImagePreview(){
+  buildImgPreviewCards();
+}
+
+function buildImgPreviewCards(){
+  const grid=document.getElementById('imgPreviewGrid');
+  if(!grid)return;
+  grid.innerHTML='';
+  const col=selectedTextColor;
+  const headline=(document.getElementById('imgTextSample')?.value||'最高の瞬間を、あなたと。').replace(/\n/g,'<br>');
+  const sub=document.getElementById('imgSubSample')?.value||'サブコピーがここに入ります';
+  const imgSrc=uploadedImageSrc;
+  if(!imgSrc){grid.innerHTML='<div style="color:var(--muted);font-size:.75rem;padding:20px 0">写真をアップロードするとプレビューが表示されます</div>';return;}
+
+  const patterns=[
+    {
+      label:'グラデオーバーレイ（下側）',
+      build:(frame)=>{
+        const img=document.createElement('img');img.src=imgSrc;img.style.cssText='width:100%;display:block;object-fit:cover;aspect-ratio:16/9';frame.appendChild(img);
+        const ov=document.createElement('div');ov.className='img-ov-grad-b';frame.appendChild(ov);
+        const txt=document.createElement('div');txt.className='img-text-overlay pos-bl';
+        txt.innerHTML=`<div style="font-family:'Fraunces',serif;font-size:clamp(1rem,3vw,1.5rem);font-weight:600;line-height:1.15;color:${col};text-shadow:0 2px 12px rgba(0,0,0,.5);margin-bottom:5px">${headline}</div><div style="font-size:.7rem;color:${col};opacity:.85;line-height:1.5;text-shadow:0 1px 6px rgba(0,0,0,.4)">${sub}</div>`;
+        frame.appendChild(txt);
+      }
+    },
+    {
+      label:'中央配置（オーバーレイ）',
+      build:(frame)=>{
+        const img=document.createElement('img');img.src=imgSrc;img.style.cssText='width:100%;display:block;object-fit:cover;aspect-ratio:16/9';frame.appendChild(img);
+        const ov=document.createElement('div');ov.className='img-ov-dark';frame.appendChild(ov);
+        const txt=document.createElement('div');txt.className='img-text-overlay pos-cc';
+        txt.innerHTML=`<div style="font-family:'Fraunces',serif;font-size:clamp(1rem,3vw,1.5rem);font-weight:600;line-height:1.15;color:${col};text-shadow:0 2px 12px rgba(0,0,0,.5);text-align:center;margin-bottom:6px">${headline}</div><div style="font-size:.7rem;color:${col};opacity:.82;line-height:1.5;text-shadow:0 1px 6px rgba(0,0,0,.4);text-align:center">${sub}</div>`;
+        frame.appendChild(txt);
+      }
+    },
+    {
+      label:'左上配置（オーバーレイなし）',
+      build:(frame)=>{
+        const img=document.createElement('img');img.src=imgSrc;img.style.cssText='width:100%;display:block;object-fit:cover;aspect-ratio:16/9';frame.appendChild(img);
+        const txt=document.createElement('div');txt.className='img-text-overlay pos-tl';
+        txt.innerHTML=`<div style="font-family:'Fraunces',serif;font-size:clamp(1rem,3vw,1.4rem);font-weight:600;line-height:1.15;color:${col};text-shadow:0 2px 14px rgba(0,0,0,.6);margin-bottom:5px">${headline}</div><div style="font-size:.68rem;color:${col};opacity:.85;line-height:1.5;text-shadow:0 1px 8px rgba(0,0,0,.5)">${sub}</div>`;
+        frame.appendChild(txt);
+      }
+    },
+    {
+      label:'1:1 正方形（Instagram）',
+      build:(frame)=>{
+        const img=document.createElement('img');img.src=imgSrc;img.style.cssText='width:100%;display:block;object-fit:cover;aspect-ratio:1/1';frame.appendChild(img);
+        const ov=document.createElement('div');ov.className='img-ov-grad-b';frame.appendChild(ov);
+        const txt=document.createElement('div');txt.className='img-text-overlay pos-bl';
+        txt.innerHTML=`<div style="font-family:'Fraunces',serif;font-size:clamp(1rem,4vw,1.4rem);font-weight:600;line-height:1.15;color:${col};text-shadow:0 2px 12px rgba(0,0,0,.5);margin-bottom:4px">${headline}</div><div style="font-size:.68rem;color:${col};opacity:.82;line-height:1.5;text-shadow:0 1px 6px rgba(0,0,0,.4)">${sub}</div>`;
+        frame.appendChild(txt);
+      }
+    },
+  ];
+
+  patterns.forEach(p=>{
+    const item=document.createElement('div');item.className='img-prev-item';
+    const lbl=document.createElement('div');lbl.className='img-prev-label';lbl.textContent=p.label;
+    const frame=document.createElement('div');frame.className='img-prev-card';frame.style.cssText='position:relative;overflow:hidden';
+    p.build(frame);
+    item.appendChild(lbl);item.appendChild(frame);
+    grid.appendChild(item);
+  });
+}
+
+/* ── 画像プレビュー保存 ── */
+async function saveImgPreview(fmt){
+  if(!uploadedImageSrc){showToast('画像をアップロードしてください');return;}
+  const pxW=parseInt(document.getElementById('imgExportW')?.value||'1200');
+  const pxH=parseInt(document.getElementById('imgExportH')?.value||'630');
+  showToast('画像を生成中...');
+  const canvas=document.getElementById('offscreen');
+  canvas.width=pxW; canvas.height=pxH;
+  const ctx=canvas.getContext('2d');
+  await new Promise(res=>{const img=new Image();img.onload=()=>{ctx.drawImage(img,0,0,pxW,pxH);res();};img.onerror=res;img.src=uploadedImageSrc;});
+  // グラデオーバーレイ
+  const ov=ctx.createLinearGradient(0,pxH,0,0);ov.addColorStop(0,'rgba(0,0,0,0.72)');ov.addColorStop(0.55,'rgba(0,0,0,0.08)');ov.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=ov;ctx.fillRect(0,0,pxW,pxH);
+  // テキスト
+  const col=selectedTextColor;
+  const headline=(document.getElementById('imgTextSample')?.value||'最高の瞬間を、あなたと。');
+  const sub=document.getElementById('imgSubSample')?.value||'サブコピー';
+  const fs1=Math.round(pxH*0.1), fs2=Math.round(pxH*0.055);
+  ctx.save();
+  ctx.shadowBlur=16;ctx.shadowColor='rgba(0,0,0,0.6)';
+  ctx.font=`600 ${fs1}px serif`;ctx.fillStyle=col;
+  let cy=pxH*0.68;
+  headline.split('\n').forEach(l=>{ctx.fillText(l,pxW*0.06,cy);cy+=fs1*1.25;});
+  cy+=fs1*0.1;
+  ctx.font=`400 ${fs2}px sans-serif`;ctx.globalAlpha=0.85;
+  sub.split('\n').forEach(l=>{ctx.fillText(l,pxW*0.06,cy);cy+=fs2*1.5;});
+  ctx.restore();
+  const mimeType=fmt==='jpg'?'image/jpeg':'image/png';
+  canvas.toBlob(blob=>{
+    const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`text-color-preview.${fmt}`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);URL.revokeObjectURL(url);
+    showToast(`${fmt.toUpperCase()} (${pxW}×${pxH}px) を保存しました ✓`);
+  },mimeType,fmt==='jpg'?0.92:1);
+}
+
+/* ══ IMAGE UPLOAD (old extract func replaced) ══ */
+function setupDragDrop(){
+  const zone=document.getElementById('uploadZone');
+  zone.addEventListener('dragover',e=>{e.preventDefault();zone.classList.add('drag');});
+  zone.addEventListener('dragleave',()=>zone.classList.remove('drag'));
+  zone.addEventListener('drop',e=>{
+    e.preventDefault(); zone.classList.remove('drag');
+    const file=e.dataTransfer.files[0];
+    if(file&&file.type.startsWith('image/')){
+      const dt=new DataTransfer(); dt.items.add(file);
+      document.getElementById('imgInput').files=dt.files;
+      handleImageUpload({target:{files:[file]}});
+    }
+  });
+}
+/* ══ CONTRAST UTILS ══ */
+function toLinear(c){const s=c/255;return s<=0.04045?s/12.92:Math.pow((s+0.055)/1.055,2.4);}
+function relLum(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return 0.2126*toLinear(r)+0.7152*toLinear(g)+0.0722*toLinear(b);}
+function contrastRatio(h1,h2){const l1=relLum(h1),l2=relLum(h2);const bright=Math.max(l1,l2),dark=Math.min(l1,l2);return (bright+0.05)/(dark+0.05);}
+function wcagLevel(r){if(r>=7)return{label:'AAA',cls:'aaa'};if(r>=4.5)return{label:'AA',cls:'aa'};if(r>=3)return{label:'AA大',cls:'aa'};return{label:'NG',cls:'fail'};}
+function tc(hex){const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);return (0.299*r+0.587*g+0.114*b)/255>.55?'rgba(0,0,0,0.85)':'rgba(255,255,255,0.95)';}
+
+/* ══ TEXT CHECKER ══ */
+function renderTextChecker(){
+  if(!currentPalette)return;
+  const cont=document.getElementById('tcPairs'); cont.innerHTML='';
+  const colors=currentPalette.colors;
+  const bgs=colors.filter(c=>['BG','Surface','Light','Dark'].includes(c.role));
+  const pairs=[];
+  bgs.forEach(bg=>{
+    colors.filter(c=>c.hex!==bg.hex).map(c=>({...c,ratio:contrastRatio(bg.hex,c.hex)})).sort((a,b)=>b.ratio-a.ratio).slice(0,2).forEach(txt=>{if(txt.ratio>=3)pairs.push({bg,txt,ratio:txt.ratio});});
+  });
+  const seen=new Set();
+  pairs.filter(p=>{const k=`${p.bg.hex}+${p.txt.hex}`;if(seen.has(k))return false;seen.add(k);return true;}).slice(0,6).forEach(p=>{
+    const lv=wcagLevel(p.ratio);
+    const card=document.createElement('div'); card.className='tc-pair'; card.onclick=()=>copyHex(p.txt.hex);
+    card.innerHTML=`<div class="tc-pair-demo" style="background:${p.bg.hex}"><div class="tc-pair-sample-title" style="color:${p.txt.hex}">見出しテキスト</div><div class="tc-pair-sample-body" style="color:${p.txt.hex}">本文・説明テキストのサンプル。</div></div><div class="tc-pair-meta"><span class="tc-pair-hexes" style="color:${p.txt.hex}80">BG ${p.bg.hex} | Text ${p.txt.hex}</span><span class="tc-badge ${lv.cls}">${lv.label} ${p.ratio.toFixed(1)}:1</span></div>`;
+    cont.appendChild(card);
+  });
+}
+
+/* ══ PALETTE PANEL ══ */
+function renderPalettePanel(){
+  if(!currentPalette)return;
+  document.getElementById('currentPalettePanel').style.display='block';
+  document.getElementById('paletteName').textContent=currentPalette.name;
+  const bar=document.getElementById('paletteBar'); bar.innerHTML='';
+  currentPalette.colors.forEach(c=>{const seg=document.createElement('div');seg.className='pb-seg';seg.style.background=c.hex;seg.dataset.hex=c.hex;seg.onclick=()=>copyHex(c.hex);bar.appendChild(seg);});
+  const sw=document.getElementById('swatchRow'); sw.innerHTML='';
+  currentPalette.colors.forEach(c=>{const item=document.createElement('div');item.className='sw-item';item.innerHTML=`<div class="sw-circle" style="background:${c.hex}"></div><div class="sw-role">${c.role}</div><div class="sw-hex">${c.hex}</div>`;item.onclick=()=>copyHex(c.hex);sw.appendChild(item);});
+  const ug=document.getElementById('useGuide'); ug.innerHTML='';
+  [{label:'背景・余白',keys:['BG','Surface','Light']},{label:'メイン・CTA',keys:['Primary','Accent']},{label:'テキスト・線',keys:['Dark','Text','Sub']}].forEach(r=>{
+    const cols=currentPalette.colors.filter(c=>r.keys.includes(c.role));
+    const dots=cols.map(c=>`<div class="ug-dot" style="background:${c.hex}" onclick="copyHex('${c.hex}')"></div>`).join('');
+    const el=document.createElement('div');el.className='ug-item';
+    el.innerHTML=`<div class="ug-role" style="color:${cols[0]?.hex||'#aaa'}">${r.label}</div><div class="ug-dots">${dots}</div>`;
+    ug.appendChild(el);
+  });
+  renderTextChecker();
+}
+
+/* ══ PREVIEWS ══ */
+function renderPreviews(){
+  document.getElementById('mainEmpty').style.display='none';
+  document.getElementById('mainContent').style.display='block';
+  switchPreview(currentPreview,document.querySelector('.prev-tab.active'));
+}
+function switchPreview(type,btn){
+  currentPreview=type;
+  if(btn)document.querySelectorAll('.prev-tab').forEach(b=>b.classList.toggle('active',b===btn));
+  const content=document.getElementById('previewContent');
+  if(!currentPalette){content.innerHTML='';return;}
+  content.innerHTML='';
+  const p=currentPalette.colors;
+  const col=role=>p.find(c=>c.role===role)?.hex||p[0]?.hex;
+  const bg=col('BG'),surf=col('Surface'),pri=col('Primary'),acc=col('Accent'),dark=col('Dark'),light=col('Light')||col('BG');
+
+  if(type==='all'||type==='banner'){
+    if(type==='all'){const l=mk('div','sec-title');l.textContent='🖥 バナー';content.appendChild(l);}
+    const wrap=mk('div','banner-wrap');
+    // banner light
+    const bl1=mk('div','banner-label');bl1.textContent='ヘッダーバナー（ライト）';
+    const bf1=mk('div','banner-frame');
+    const b1=mk('div','bn-header');b1.style.background=bg;b1.style.color=tc(bg);
+    b1.innerHTML=`<div class="bn-deco" style="background:${pri}"></div><div class="bn-accent-shape" style="background:${pri}"></div><div class="bn-content"><div class="bn-eyebrow" style="color:${pri}">NEW ARRIVAL</div><div class="bn-title" style="color:${tc(bg)}">最高のデザインを<br>あなたの手に</div><div class="bn-sub">洗練されたビジュアルで、ブランドの世界観を伝えましょう</div><div class="bn-cta" style="background:${pri};color:${tc(pri)}">詳しく見る →</div></div>`;
+    bf1.appendChild(b1);wrap.appendChild(bl1);wrap.appendChild(bf1);
+    // banner dark
+    const bl2=mk('div','banner-label');bl2.textContent='ヘッダーバナー（ダーク）';bl2.style.marginTop='14px';
+    const bf2=mk('div','banner-frame');
+    const b2=mk('div','bn-header');b2.style.background=dark;b2.style.color=tc(dark);
+    b2.innerHTML=`<div class="bn-deco" style="background:${acc}"></div><div class="bn-accent-shape" style="background:${acc}"></div><div class="bn-content"><div class="bn-eyebrow" style="color:${acc}">SPECIAL OFFER</div><div class="bn-title" style="color:${tc(dark)}">特別な体験を<br>今すぐはじめよう</div><div class="bn-sub">期間限定のオファーをお見逃しなく</div><div class="bn-cta" style="background:${acc};color:${tc(acc)}">今すぐ申し込む →</div></div>`;
+    bf2.appendChild(b2);wrap.appendChild(bl2);wrap.appendChild(bf2);
+    content.appendChild(wrap);
+    if(type==='all'){const d=mk('div','sec-divider');content.appendChild(d);}
+  }
+
+  if(type==='all'||type==='insta'){
+    if(type==='all'){const l=mk('div','sec-title');l.textContent='📸 Instagram FV';content.appendChild(l);}
+    const row=mk('div','preview-items-row');
+    // light
+    const i1=mk('div','preview-item');const lb1=mk('div','banner-label');lb1.textContent='1:1 ライト';
+    const fr1=mk('div','banner-frame');
+    const ins1=mk('div','bn-insta');ins1.style.cssText=`background:linear-gradient(160deg,${bg} 0%,${surf} 100%)`;
+    ins1.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;top:-20%;right:-15%;width:70%;aspect-ratio:1;border-radius:50%;background:${pri};opacity:.12"></div></div><div class="bn-content"><span class="insta-tag" style="background:${pri};color:${tc(pri)}">NEW POST</span><div class="insta-headline" style="color:${tc(bg)}">あなたの毎日に<br>彩りを添えて。</div><div class="insta-sub" style="color:${tc(bg)}">シンプルだけど印象的なビジュアルで、フォロワーの心を掴みましょう。</div><div class="insta-footer"><span class="insta-handle" style="color:${tc(bg)}">@yourbrand</span><span class="insta-btn" style="background:${pri};color:${tc(pri)}">Follow</span></div></div>`;
+    fr1.appendChild(ins1);i1.appendChild(lb1);i1.appendChild(fr1);
+    // dark
+    const i2=mk('div','preview-item');const lb2=mk('div','banner-label');lb2.textContent='1:1 ダーク';
+    const fr2=mk('div','banner-frame');
+    const ins2=mk('div','bn-insta');ins2.style.cssText=`background:linear-gradient(135deg,${dark} 0%,${dark} 60%,${pri}55 100%)`;
+    ins2.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;top:10%;right:5%;width:45%;aspect-ratio:1;border-radius:50%;background:${acc};opacity:.15"></div></div><div class="bn-content"><span class="insta-tag" style="border:1px solid ${acc};color:${acc}">LIMITED</span><div class="insta-headline" style="color:${tc(dark)}">特別な瞬間を<br>一緒に作ろう。</div><div class="insta-sub" style="color:${tc(dark)}">プレミアムな体験があなたを待っています。</div><div class="insta-footer"><span class="insta-handle" style="color:${tc(dark)}">@yourbrand</span><span class="insta-btn" style="border:1.5px solid ${acc};color:${acc}">Explore</span></div></div>`;
+    fr2.appendChild(ins2);i2.appendChild(lb2);i2.appendChild(fr2);
+    row.appendChild(i1);row.appendChild(i2);content.appendChild(row);
+    if(type==='all'){const d=mk('div','sec-divider');content.appendChild(d);}
+  }
+
+  if(type==='all'||type==='story'){
+    if(type==='all'){const l=mk('div','sec-title');l.textContent='📱 ストーリー';content.appendChild(l);}
+    const row=mk('div','preview-items-row');
+    // story 1
+    const s1i=mk('div','preview-item');const s1l=mk('div','banner-label');s1l.textContent='9:16 グラデ';
+    const s1f=mk('div','banner-frame');const st1=mk('div','bn-story');st1.style.cssText=`background:linear-gradient(170deg,${dark} 0%,${pri}CC 50%,${acc} 100%)`;
+    st1.innerHTML=`<div class="st-top"><div class="st-prog"><div class="st-bar" style="background:${tc(dark)}"></div><div class="st-bar" style="background:${tc(dark)};opacity:.4"></div><div class="st-bar" style="background:${tc(dark)};opacity:.4"></div></div><span style="font-size:.55rem;font-weight:700;color:${tc(dark)}80">@yourbrand</span></div><div class="st-content"><span class="st-tag" style="background:${tc(dark)}22;color:${tc(dark)}">STORY</span><div class="st-headline" style="color:${tc(dark)}">毎日を<br>もっと美しく。</div><div style="font-size:.62rem;color:${tc(dark)};opacity:.7;line-height:1.5;margin-top:3px">詳細はプロフのリンクから</div></div>`;
+    s1f.appendChild(st1);s1i.appendChild(s1l);s1i.appendChild(s1f);
+    // story 2
+    const s2i=mk('div','preview-item');const s2l=mk('div','banner-label');s2l.textContent='9:16 フラット';
+    const s2f=mk('div','banner-frame');const st2=mk('div','bn-story');st2.style.background=bg;
+    st2.innerHTML=`<div style="position:absolute;inset:0;overflow:hidden"><div style="position:absolute;top:15%;left:50%;transform:translateX(-50%);width:80%;aspect-ratio:1;border-radius:50%;background:${pri};opacity:.1"></div></div><div class="st-top"><div class="st-prog"><div class="st-bar" style="background:${tc(bg)}"></div><div class="st-bar" style="background:${tc(bg)};opacity:.4"></div><div class="st-bar" style="background:${tc(bg)};opacity:.4"></div></div><span style="font-size:.55rem;font-weight:700;color:${tc(bg)}80">@yourbrand</span></div><div class="st-content"><span class="st-tag" style="background:${pri};color:${tc(pri)}">NEW</span><div class="st-headline" style="color:${tc(bg)}">新作が<br>入荷しました。</div><div style="font-size:.62rem;color:${tc(bg)};opacity:.65;line-height:1.5;margin-top:3px">今すぐチェック ↑</div></div>`;
+    s2f.appendChild(st2);s2i.appendChild(s2l);s2i.appendChild(s2f);
+    row.appendChild(s1i);row.appendChild(s2i);content.appendChild(row);
+    if(type==='all'&&uploadedImageSrc){const d=mk('div','sec-divider');content.appendChild(d);}
+    else if(type==='all'){const d=mk('div','sec-divider');content.appendChild(d);}
+  }
+
+  // 写真プレビュー (allのときも画像あれば表示)
+  if(type==='photo'||(type==='all'&&uploadedImageSrc)){
+    renderPhotoSection(content,bg,surf,pri,acc,dark,light);
+    if(type==='all'){const d=mk('div','sec-divider');content.appendChild(d);}
+  }
+
+  if(type==='picker'){
+    renderPickerTab(content);
+    return; // picker tab is standalone
+  }
+
+  if(type==='all'||type==='guide'){
+    if(type==='all'){const l=mk('div','sec-title');l.textContent='📋 配色ガイド';content.appendChild(l);}
+    const desc=mk('div','');desc.style.cssText='font-size:.75rem;color:var(--muted);line-height:1.8;margin-bottom:14px;font-family:"Noto Sans JP",sans-serif;font-weight:300';desc.textContent=currentPalette.desc||'このパレットを活かして印象的なビジュアルを作りましょう。';content.appendChild(desc);
+    const gdata=[{role:'背景色',color:bg,desc:'ページ・カードの背景に',example:'ヒーロー背景・フッター'},{role:'サーフェス',color:surf,desc:'カード・モーダルの地色',example:'カード・ナビゲーション'},{role:'プライマリ',color:pri,desc:'ボタン・リンク・強調',example:'CTA・リンク・アイコン'},{role:'アクセント',color:acc,desc:'バッジ・タグ・差し色',example:'バッジ・ホバー色'},{role:'ダーク',color:dark,desc:'テキスト・アイコン',example:'本文・見出し'},{role:'ライト',color:light,desc:'反転テキスト・補助',example:'白テキスト'}];
+    const gg=mk('div','guide-grid');
+    gdata.forEach(g=>{
+      const card=mk('div','guide-card');const ltc=(0.299*parseInt(g.color.slice(1,3),16)+0.587*parseInt(g.color.slice(3,5),16)+0.114*parseInt(g.color.slice(5,7),16))/255>.5?'rgba(0,0,0,0.8)':'rgba(255,255,255,0.9)';
+      card.innerHTML=`<div class="guide-role-tag" style="background:${g.color};color:${ltc}">${g.role}</div><div class="guide-desc">${g.desc}</div><div style="font-size:.57rem;color:var(--muted2);margin-top:4px;font-style:italic">${g.example}</div><div class="guide-swatches"><div class="guide-sw" style="background:${g.color}" onclick="copyHex('${g.color}')"></div><span style="font-size:.57rem;color:var(--muted);cursor:pointer" onclick="copyHex('${g.color}')">${g.color}</span></div>`;
+      gg.appendChild(card);
+    });
+    content.appendChild(gg);
+    // combos
+    const cl=mk('div','sec-title');cl.style.marginTop='20px';cl.textContent='組み合わせパターン';content.appendChild(cl);
+    const combos=[{name:'ライトメイン',note:'LP・ブログ・コーポレート',cols:[bg,surf,pri,dark]},{name:'ダークメイン',note:'ポートフォリオ・ナイト系',cols:[dark,pri,acc,bg]},{name:'アクセント強調',note:'SNS・バナー',cols:[bg,pri,acc,surf]}];
+    const cw=mk('div','');cw.style.cssText='display:flex;flex-wrap:wrap;gap:10px;margin-bottom:4px';
+    combos.forEach(c=>{
+      const el=mk('div','');el.style.cssText='background:var(--s2);border:1px solid var(--border);border-radius:9px;padding:11px 13px;flex:1 1 180px;min-width:160px';
+      const strip=c.cols.map(h=>`<span style="background:${h};flex:1;cursor:pointer" onclick="copyHex('${h}')"></span>`).join('');
+      el.innerHTML=`<div style="display:flex;height:32px;border-radius:5px;overflow:hidden;gap:2px;margin-bottom:8px">${strip}</div><div style="font-size:.7rem;font-weight:600;color:var(--text);margin-bottom:2px">${c.name}</div><div style="font-size:.62rem;color:var(--muted);line-height:1.5">${c.note}</div>`;
+      cw.appendChild(el);
+    });
+    content.appendChild(cw);
+    // contrast check
+    const tl=mk('div','sec-title');tl.style.marginTop='20px';tl.textContent='Aa 背景×文字色チェック';content.appendChild(tl);
+    const allC=currentPalette.colors;
+    const tg=mk('div','');tg.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:9px';
+    allC.forEach(bgC=>{
+      const ranked=allC.filter(c=>c.hex!==bgC.hex).map(c=>({...c,ratio:contrastRatio(bgC.hex,c.hex)})).sort((a,b)=>b.ratio-a.ratio).slice(0,3);
+      const card=mk('div','');card.style.cssText='background:var(--s2);border:1px solid var(--border);border-radius:9px;overflow:hidden';
+      const hd=mk('div','');hd.style.cssText=`background:${bgC.hex};padding:9px 12px`;hd.innerHTML=`<div style="font-size:.78rem;font-weight:600;color:${tc(bgC.hex)};opacity:.5">${bgC.role}</div><div style="font-size:.58rem;color:${tc(bgC.hex)};opacity:.4;font-family:monospace">${bgC.hex}</div>`;card.appendChild(hd);
+      const rows=mk('div','');rows.style.padding='7px';
+      ranked.forEach(txt=>{
+        const lv=wcagLevel(txt.ratio);const row=mk('div','');
+        row.style.cssText=`display:flex;align-items:center;justify-content:space-between;padding:5px 7px;border-radius:6px;margin-bottom:3px;background:${bgC.hex};cursor:pointer;border:1px solid rgba(255,255,255,.05)`;
+        row.onclick=()=>copyHex(txt.hex);
+        row.innerHTML=`<div style="display:flex;align-items:center;gap:7px"><div style="width:20px;height:20px;border-radius:50%;background:${txt.hex};box-shadow:0 1px 4px rgba(0,0,0,.4);flex-shrink:0"></div><div style="font-size:.62rem;font-weight:600;color:${txt.hex}">${txt.name}<div style="font-size:.52rem;opacity:.6;font-family:monospace">${txt.hex}</div></div></div><span style="font-size:.52rem;font-weight:800;padding:2px 6px;border-radius:100px;background:${lv.cls==='aaa'?'rgba(80,200,80,.15)':lv.cls==='aa'?'rgba(220,180,60,.15)':'rgba(220,70,70,.15)'};color:${lv.cls==='aaa'?'#5CE05C':lv.cls==='aa'?'#D4B040':'#E05858'}">${lv.label} ${txt.ratio.toFixed(1)}</span>`;
+        rows.appendChild(row);
+      });
+      card.appendChild(rows);tg.appendChild(card);
+    });
+    content.appendChild(tg);
+  }
+}
+
+/* ══ PHOTO SECTION ══ */
+function getPhotoTexts(){
+  return {
+    headline:(document.getElementById('pt-headline')?.value||'最高の瞬間を、あなたと。').replace(/\n/g,'<br>'),
+    sub:(document.getElementById('pt-sub')?.value||'新しいコレクション、登場。').replace(/\n/g,'<br>'),
+    tag:document.getElementById('pt-tag')?.value||'NEW ARRIVAL',
+    cta:document.getElementById('pt-cta')?.value||'詳しく見る →',
+  };
+}
+
+function renderPhotoSection(content,bg,surf,pri,acc,dark,light){
+  const lbl=mk('div','sec-title');lbl.textContent='🖼 写真 + 文字プレビュー';content.appendChild(lbl);
+
+  // ② 文字入力コントロール（textarea で段落対応）
+  const ctrl=mk('div','photo-controls');
+  ctrl.innerHTML=`
+    <div class="photo-controls-grid">
+      <div class="pc-field pc-row-full">
+        <label class="pc-label">見出し（改行で段落）</label>
+        <textarea class="pc-textarea" id="pt-headline" rows="2" oninput="refreshPhotoText()" placeholder="見出しテキスト">最高の瞬間を、あなたと。</textarea>
+      </div>
+      <div class="pc-field pc-row-full">
+        <label class="pc-label">サブコピー（改行で段落）</label>
+        <textarea class="pc-textarea" id="pt-sub" rows="2" oninput="refreshPhotoText()" placeholder="サブコピー">新しいコレクション、登場。</textarea>
+      </div>
+      <div class="pc-field">
+        <label class="pc-label">タグ</label>
+        <input class="pc-input" id="pt-tag" value="NEW ARRIVAL" oninput="refreshPhotoText()">
+      </div>
+      <div class="pc-field">
+        <label class="pc-label">CTAボタン</label>
+        <input class="pc-input" id="pt-cta" value="詳しく見る →" oninput="refreshPhotoText()">
+      </div>
+    </div>`;
+  content.appendChild(ctrl);
+
+  if(!uploadedImageSrc){
+    const hint=mk('div','no-photo-hint');hint.innerHTML='📷 「画像から抽出」モードで写真をアップロードすると<br>実際の写真に文字を重ねたプレビューが表示されます。<br>今はカラープレースホルダーで表示しています。';content.appendChild(hint);
+  }
+
+  const grid=mk('div','');grid.id='photoPreviewGrid';grid.style.cssText='display:flex;flex-direction:column;gap:0';
+  content.appendChild(grid);
+  _buildPhotoCards(grid,bg,surf,pri,acc,dark,light);
+}
+
+/* ── 6パターン生成 ── */
+function _buildPhotoCards(grid,bg,surf,pri,acc,dark,light){
+  const{headline,sub,tag,cta}=getPhotoTexts();
+  const imgSrc=uploadedImageSrc;
+  grid.innerHTML='';
+
+  const PATTERNS=[
+    {id:'p1',label:'① グラデオーバーレイ（左下テキスト）',ar:'16/9',exportW:1200,exportH:400},
+    {id:'p2',label:'② カラー帯 + 写真（横並び）',ar:'16/9',exportW:1200,exportH:400},
+    {id:'p3',label:'③ 中央テキスト（暗いオーバーレイ）',ar:'1/1',exportW:1080,exportH:1080},
+    {id:'p4',label:'④ カラーオーバーレイ（ブランドカラー）',ar:'1/1',exportW:1080,exportH:1080},
+    {id:'p5',label:'⑤ Story風（上下テキスト）',ar:'9/16',exportW:1080,exportH:1920},
+    {id:'p6',label:'⑥ フロストガラス帯',ar:'16/9',exportW:1200,exportH:400},
+  ];
+
+  PATTERNS.forEach(pat=>{
+    const item=mk('div','photo-pattern-item');
+
+    // ラベル行（保存ボタン付き）⑥③④
+    const labelRow=mk('div','photo-pattern-label');
+    labelRow.innerHTML=`<span>${pat.label}</span>`;
+    item.appendChild(labelRow);
+
+    // フレーム
+    const frame=mk('div','photo-frame');frame.id=`frame-${pat.id}`;
+    frame.style.cssText=`position:relative;overflow:hidden;aspect-ratio:${pat.ar};max-width:${pat.ar==='9/16'?'240px':pat.ar==='1/1'?'360px':'100%'}`;
+    _renderPattern(frame,pat.id,imgSrc,headline,sub,tag,cta,bg,surf,pri,acc,dark,light);
+    item.appendChild(frame);
+
+    // ⑥⑤ 保存バー（px変更 + JPG/PNG）
+    const sbar=mk('div','save-bar');
+    sbar.innerHTML=`
+      <span class="save-bar-label">⑤ テキスト: ドラッグで移動</span>
+      <span class="save-bar-label" style="margin-left:auto">⑥ 書き出しサイズ:</span>
+      <input class="save-px-input" id="px-${pat.id}" value="${pat.exportW}" type="number" min="100" max="4000" step="100" placeholder="${pat.exportW}">
+      <span class="save-bar-label">×</span>
+      <input class="save-px-input" id="py-${pat.id}" value="${pat.exportH}" type="number" min="100" max="4000" step="100" placeholder="${pat.exportH}">
+      <button class="save-btn" onclick="savePattern('${pat.id}','png')">💾 PNG</button>
+      <button class="save-btn primary" onclick="savePattern('${pat.id}','jpg')">💾 JPG</button>`;
+    item.appendChild(sbar);
+
+    grid.appendChild(item);
+  });
+}
+
+/* ── 各パターンのDOM描画 ── */
+function _renderPattern(frame,patId,imgSrc,headline,sub,tag,cta,bg,surf,pri,acc,dark,light){
+  frame.innerHTML='';
+
+  // 背景
+  const bgLayer=mk('div','');bgLayer.className='photo-bg-layer';
+  if(imgSrc){
+    const img=mk('img','');img.src=imgSrc;img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0';
+    bgLayer.style.cssText='position:absolute;inset:0';bgLayer.appendChild(img);
+  }
+
+  if(patId==='p1'){
+    if(imgSrc)frame.appendChild(bgLayer);else{const ph=mk('div','');ph.style.cssText=`position:absolute;inset:0;background:linear-gradient(135deg,${dark},${pri})`;frame.appendChild(ph);}
+    const ov=mk('div','');ov.style.cssText='position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.78) 0%,rgba(0,0,0,.1) 55%,transparent 100%)';frame.appendChild(ov);
+    makeDragText(frame,patId,`<span style="display:inline-block;background:${pri};color:${tc(pri)};font-size:.58rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:100px;margin-bottom:5px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(1rem,3vw,1.8rem);font-weight:600;line-height:1.15;color:#fff;letter-spacing:-.02em;margin-bottom:4px">${headline}</div><div style="font-size:.7rem;color:rgba(255,255,255,.75);line-height:1.5;margin-bottom:6px">${sub}</div><span style="display:inline-flex;background:${pri};color:${tc(pri)};font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:8px 18px;border-radius:100px">${cta}</span>`,'7%','auto','auto','7%');
+  }
+  else if(patId==='p2'){
+    frame.style.cssText+='display:flex;';
+    const band=mk('div','');band.style.cssText=`flex:0 0 42%;background:${dark};display:flex;flex-direction:column;justify-content:center;gap:6px;padding:7% 8%;position:relative;z-index:2`;
+    band.innerHTML=`<span style="display:inline-block;background:${pri};color:${tc(pri)};font-size:.56rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:100px;align-self:flex-start;margin-bottom:3px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(.95rem,2.5vw,1.5rem);font-weight:600;line-height:1.15;color:${tc(dark)};letter-spacing:-.02em;margin-bottom:4px">${headline}</div><div style="font-size:.68rem;color:${tc(dark)};opacity:.7;line-height:1.5;margin-bottom:6px">${sub}</div><span style="display:inline-flex;background:${pri};color:${tc(pri)};font-size:.66rem;font-weight:700;letter-spacing:.06em;padding:7px 16px;border-radius:100px;align-self:flex-start">${cta}</span>`;
+    frame.appendChild(band);
+    const imgW=mk('div','');imgW.style.cssText='flex:1;overflow:hidden;position:relative';
+    if(imgSrc){const img=mk('img','');img.src=imgSrc;img.style.cssText='width:100%;height:100%;object-fit:cover;display:block';imgW.appendChild(img);}
+    else{imgW.style.background=`linear-gradient(135deg,${surf},${pri}88)`;}
+    frame.appendChild(imgW);
+  }
+  else if(patId==='p3'){
+    if(imgSrc)frame.appendChild(bgLayer);else{const ph=mk('div','');ph.style.cssText=`position:absolute;inset:0;background:linear-gradient(160deg,${bg},${pri})`;frame.appendChild(ph);}
+    const ov=mk('div','');ov.style.cssText='position:absolute;inset:0;background:rgba(0,0,0,.42)';frame.appendChild(ov);
+    makeDragText(frame,patId,`<span style="display:inline-block;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);font-size:.56rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:100px;margin-bottom:6px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(1.1rem,4vw,2rem);font-weight:600;line-height:1.15;color:#fff;letter-spacing:-.02em;text-align:center;margin-bottom:5px">${headline}</div><div style="font-size:.7rem;color:rgba(255,255,255,.75);line-height:1.5;text-align:center;margin-bottom:7px">${sub}</div><span style="display:inline-flex;background:${pri};color:${tc(pri)};font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:8px 18px;border-radius:100px">${cta}</span>`,'50%','auto','auto','50%','translate(-50%,-50%)');
+  }
+  else if(patId==='p4'){
+    if(imgSrc)frame.appendChild(bgLayer);else{const ph=mk('div','');ph.style.cssText=`position:absolute;inset:0;background:${surf}`;frame.appendChild(ph);}
+    const ov=mk('div','');ov.style.cssText=`position:absolute;inset:0;background:${pri};opacity:.55;mix-blend-mode:multiply`;frame.appendChild(ov);
+    makeDragText(frame,patId,`<span style="display:inline-block;background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.35);font-size:.56rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 9px;border-radius:100px;margin-bottom:5px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(1rem,3.5vw,1.8rem);font-weight:600;line-height:1.15;color:#fff;letter-spacing:-.02em;margin-bottom:4px">${headline}</div><div style="font-size:.7rem;color:rgba(255,255,255,.8);line-height:1.5;margin-bottom:6px">${sub}</div><span style="display:inline-flex;background:#fff;color:${pri};font-size:.68rem;font-weight:700;letter-spacing:.06em;padding:8px 18px;border-radius:100px">${cta}</span>`,'7%','auto','auto','7%');
+  }
+  else if(patId==='p5'){
+    if(imgSrc)frame.appendChild(bgLayer);else{const ph=mk('div','');ph.style.cssText=`position:absolute;inset:0;background:linear-gradient(170deg,${dark},${pri}88)`;frame.appendChild(ph);}
+    const ov=mk('div','');ov.style.cssText='position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.68) 0%,rgba(0,0,0,0) 45%,rgba(0,0,0,.58) 100%)';frame.appendChild(ov);
+    // 上部テキスト（ドラッグ）
+    makeDragText(frame,patId+'_top',`<span style="display:inline-block;background:${pri};color:${tc(pri)};font-size:.54rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:3px 8px;border-radius:100px;margin-bottom:5px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(.95rem,3vw,1.4rem);font-weight:600;line-height:1.15;color:#fff;letter-spacing:-.02em">${headline}</div>`,'6%','auto','auto','6%');
+    // 下部テキスト（ドラッグ）
+    makeDragText(frame,patId+'_bot',`<div style="font-size:.66rem;color:rgba(255,255,255,.8);line-height:1.5;margin-bottom:6px">${sub}</div><span style="display:inline-flex;background:${pri};color:${tc(pri)};font-size:.64rem;font-weight:700;letter-spacing:.06em;padding:7px 16px;border-radius:100px">${cta}</span>`,'auto','6%','6%','6%');
+  }
+  else if(patId==='p6'){
+    if(imgSrc)frame.appendChild(bgLayer);else{const ph=mk('div','');ph.style.cssText=`position:absolute;inset:0;background:linear-gradient(135deg,${surf},${acc}55)`;frame.appendChild(ph);}
+    const frost=mk('div','');frost.style.cssText='position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,0.13);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid rgba(255,255,255,.2);padding:13px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;z-index:2';
+    frost.innerHTML=`<div><span style="display:inline-block;background:${pri};color:${tc(pri)};font-size:.55rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:100px;margin-bottom:3px">${tag}</span><div style="font-family:'Fraunces',serif;font-size:clamp(.9rem,2vw,1.1rem);font-weight:600;color:#fff;line-height:1.2">${headline}</div><div style="font-size:.6rem;color:rgba(255,255,255,.7);margin-top:2px">${sub}</div></div><span style="display:inline-flex;flex-shrink:0;background:${pri};color:${tc(pri)};font-size:.64rem;font-weight:700;letter-spacing:.06em;padding:7px 14px;border-radius:100px">${cta}</span>`;
+    frame.appendChild(frost);
+  }
+}
+
+/* ── ⑤ ドラッグ可能テキスト層 ── */
+function makeDragText(frame,layerId,html,top,right,bottom,left,transform){
+  const layer=mk('div','drag-text-layer');
+  layer.id='dtl-'+layerId;
+  layer.style.top=top||'auto';layer.style.right=right||'auto';layer.style.bottom=bottom||'auto';layer.style.left=left||'auto';
+  if(transform)layer.style.transform=transform;
+  layer.innerHTML=`<div class="drag-handle-hint">↕ ドラッグで移動</div>${html}`;
+  // ドラッグ開始
+  layer.addEventListener('mousedown',e=>startDrag(e,layer));
+  layer.addEventListener('touchstart',e=>startDrag(e,layer),{passive:false});
+  frame.appendChild(layer);
+}
+function startDrag(e,el){
+  e.preventDefault();e.stopPropagation();
+  const isTouch=e.type==='touchstart';
+  const clientX=isTouch?e.touches[0].clientX:e.clientX;
+  const clientY=isTouch?e.touches[0].clientY:e.clientY;
+  const rect=el.parentElement.getBoundingClientRect();
+  // 現在のpx位置を取得
+  const cs=window.getComputedStyle(el);
+  const curL=parseFloat(cs.left);const curT=parseFloat(cs.top);
+  // reset to absolute px
+  el.style.top=curT+'px';el.style.left=curL+'px';el.style.bottom='auto';el.style.right='auto';el.style.transform='none';
+  _drag={el,ox:clientX-curL,oy:clientY-curT,pw:rect.width,ph:rect.height};
+  el.classList.add('dragging');
+  document.addEventListener(isTouch?'touchmove':'mousemove',onDrag,{passive:false});
+  document.addEventListener(isTouch?'touchend':'mouseup',endDrag);
+}
+function onDrag(e){
+  if(!_drag.el)return;e.preventDefault();
+  const isTouch=e.type==='touchmove';
+  const clientX=isTouch?e.touches[0].clientX:e.clientX;
+  const clientY=isTouch?e.touches[0].clientY:e.clientY;
+  let nx=clientX-_drag.ox,ny=clientY-_drag.oy;
+  nx=Math.max(0,Math.min(_drag.pw-30,nx));ny=Math.max(0,Math.min(_drag.ph-20,ny));
+  _drag.el.style.left=nx+'px';_drag.el.style.top=ny+'px';
+}
+function endDrag(e){
+  if(!_drag.el)return;
+  _drag.el.classList.remove('dragging');
+  document.removeEventListener('mousemove',onDrag);document.removeEventListener('mouseup',endDrag);
+  document.removeEventListener('touchmove',onDrag);document.removeEventListener('touchend',endDrag);
+  _drag={el:null,ox:0,oy:0,sx:0,sy:0};
+}
+
+/* ── ③④ テキスト更新（リアルタイム） ── */
+function refreshPhotoText(){
+  const grid=document.getElementById('photoPreviewGrid');
+  if(!grid||!currentPalette)return;
+  const p=currentPalette.colors;
+  const col=r=>p.find(c=>c.role===r)?.hex||p[0]?.hex;
+  const bg=col('BG'),surf=col('Surface'),pri=col('Primary'),acc=col('Accent'),dark=col('Dark'),light=col('Light')||col('BG');
+  _buildPhotoCards(grid,bg,surf,pri,acc,dark,light);
+}
+
+/* ── ③ 保存（JPG/PNG）⑥ px変更対応 ── */
+async function savePattern(patId,fmt){
+  const frame=document.getElementById(`frame-${patId}`);
+  if(!frame){showToast('フレームが見つかりません');return;}
+  const pxW=parseInt(document.getElementById(`px-${patId}`)?.value||'1200');
+  const pxH=parseInt(document.getElementById(`py-${patId}`)?.value||'400');
+  showToast('画像を生成中...');
+
+  // html2canvas がなければ自前Canvas描画
+  const canvas=document.getElementById('offscreen');
+  canvas.width=pxW; canvas.height=pxH;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,pxW,pxH);
+
+  // フレームのDOM要素をスケールしてcanvasに描画
+  // ブラウザ制限のため、画像は直接drawImage, テキストはgetBoundingClientRect比率で配置
+  const frameRect=frame.getBoundingClientRect();
+  const scaleX=pxW/frameRect.width, scaleY=pxH/frameRect.height;
+
+  // 1. 背景
+  const p=currentPalette.colors;
+  const col=r=>p.find(c=>c.role===r)?.hex||p[0]?.hex;
+  const bg=col('BG'),surf=col('Surface'),pri=col('Primary'),acc=col('Accent'),dark=col('Dark');
+
+  // 背景画像またはカラー
+  if(uploadedImageSrc && patId!=='p2'){
+    await new Promise(res=>{
+      const img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>{
+        if(patId==='p5'){ctx.drawImage(img,0,0,pxW,pxH);}
+        else{ctx.drawImage(img,0,0,pxW,pxH);}
+        res();
+      };img.onerror=res;img.src=uploadedImageSrc;
+    });
+  } else {
+    const grd=ctx.createLinearGradient(0,0,pxW,pxH);
+    grd.addColorStop(0,patId==='p1'||patId==='p6'?dark:bg);
+    grd.addColorStop(1,pri+'88');
+    ctx.fillStyle=grd;ctx.fillRect(0,0,pxW,pxH);
+  }
+
+  // 2. オーバーレイ
+  if(patId==='p1'||patId==='p5'){
+    const ov=ctx.createLinearGradient(0,pxH,0,0);
+    ov.addColorStop(0,'rgba(0,0,0,0.78)');ov.addColorStop(0.55,'rgba(0,0,0,0.1)');ov.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=ov;ctx.fillRect(0,0,pxW,pxH);
+  } else if(patId==='p3'){
+    ctx.fillStyle='rgba(0,0,0,0.42)';ctx.fillRect(0,0,pxW,pxH);
+  } else if(patId==='p4'){
+    ctx.globalAlpha=0.55;ctx.fillStyle=pri;ctx.fillRect(0,0,pxW,pxH);ctx.globalAlpha=1;
+  }
+
+  // 3. テキストレイヤーをDOM座標→Canvas座標に変換して描画
+  frame.querySelectorAll('.drag-text-layer').forEach(layer=>{
+    const lr=layer.getBoundingClientRect();
+    const lx=(lr.left-frameRect.left)*scaleX;
+    const ly=(lr.top-frameRect.top)*scaleY;
+    const lw=(lr.width)*scaleX;
+    // テキスト要素を順に描画
+    let cy=ly+8*scaleY;
+    layer.querySelectorAll('[style]').forEach(el=>{
+      if(el.classList.contains('drag-handle-hint'))return;
+      const elR=el.getBoundingClientRect();
+      const elH=(elR.height)*scaleY;
+      const txt=el.innerText||el.textContent||'';
+      if(!txt.trim())return;
+      // フォントサイズをスケール
+      const cs=window.getComputedStyle(el);
+      const fsRaw=parseFloat(cs.fontSize);
+      const fs=Math.round(fsRaw*Math.min(scaleX,scaleY));
+      ctx.save();
+      const fw=cs.fontWeight||'400';
+      const ff=cs.fontFamily.includes('Fraunces')?'serif':'sans-serif';
+      ctx.font=`${fw} ${fs}px ${ff}`;
+      ctx.fillStyle=cs.color||'#fff';
+      ctx.shadowBlur=0;
+      // 改行対応
+      const lines=txt.split('\n');
+      lines.forEach((line,i)=>{ctx.fillText(line,lx+6*scaleX,cy+(i+1)*fs*1.2);});
+      ctx.restore();
+      cy+=elH+4*scaleY;
+    });
+  });
+
+  // p2: 帯 + 画像
+  if(patId==='p2'){
+    ctx.clearRect(0,0,pxW,pxH);
+    // 帯
+    ctx.fillStyle=dark;ctx.fillRect(0,0,Math.round(pxW*0.42),pxH);
+    // 写真
+    if(uploadedImageSrc){
+      await new Promise(res=>{const img=new Image();img.onload=()=>{ctx.drawImage(img,Math.round(pxW*0.42),0,Math.round(pxW*0.58),pxH);res();};img.onerror=res;img.src=uploadedImageSrc;});
+    } else {
+      const grd=ctx.createLinearGradient(Math.round(pxW*0.42),0,pxW,pxH);grd.addColorStop(0,surf);grd.addColorStop(1,pri+'88');ctx.fillStyle=grd;ctx.fillRect(Math.round(pxW*0.42),0,Math.round(pxW*0.58),pxH);
+    }
+    // テキスト
+    const{headline,sub,tag,cta}=getPhotoTexts();
+    const fs1=Math.round(pxH*0.1), fs2=Math.round(pxH*0.055), fsTag=Math.round(pxH*0.038);
+    let cy2=pxH*0.28;
+    ctx.save();ctx.font=`700 ${fsTag}px sans-serif`;ctx.fillStyle=tc(dark)==='rgba(255,255,255,0.95)'?'#fff':'#000';ctx.fillText(tag,pxW*0.06,cy2);cy2+=fsTag*1.6;
+    ctx.font=`600 ${fs1}px serif`;ctx.fillStyle=tc(dark)==='rgba(255,255,255,0.95)'?'#fff':'#000';
+    headline.split('<br>').forEach(l=>{ctx.fillText(l,pxW*0.06,cy2);cy2+=fs1*1.2;});
+    cy2+=fs1*0.3;
+    ctx.font=`400 ${fs2}px sans-serif`;ctx.globalAlpha=0.7;
+    sub.replace('<br>','\n').split('\n').forEach(l=>{ctx.fillText(l,pxW*0.06,cy2);cy2+=fs2*1.5;});
+    ctx.globalAlpha=1;ctx.restore();
+  }
+
+  // p6: フロスト帯
+  if(patId==='p6'){
+    const bh=Math.round(pxH*0.32);
+    ctx.fillStyle='rgba(255,255,255,0.13)';ctx.fillRect(0,pxH-bh,pxW,bh);
+    ctx.strokeStyle='rgba(255,255,255,0.2)';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(0,pxH-bh);ctx.lineTo(pxW,pxH-bh);ctx.stroke();
+    const{headline,sub,tag,cta}=getPhotoTexts();
+    const fs1=Math.round(pxH*0.09),fs2=Math.round(pxH*0.05),fsTag=Math.round(pxH*0.04);
+    let cy3=pxH-bh+fsTag*1.4;
+    ctx.save();ctx.font=`700 ${fsTag}px sans-serif`;ctx.fillStyle=tc(pri)==='rgba(0,0,0,0.85)'?'#000':'#fff';ctx.fillText(tag,pxW*0.03,cy3);cy3+=fsTag*1.5;
+    ctx.font=`600 ${fs1}px serif`;ctx.fillStyle='#fff';headline.split('<br>').forEach(l=>{ctx.fillText(l,pxW*0.03,cy3);cy3+=fs1*1.2;});
+    ctx.font=`400 ${fs2}px sans-serif`;ctx.globalAlpha=0.7;ctx.fillStyle='#fff';sub.replace('<br>','\n').split('\n').forEach(l=>{ctx.fillText(l,pxW*0.03,cy3);cy3+=fs2*1.4;});ctx.globalAlpha=1;
+    ctx.restore();
+  }
+
+  // ダウンロード
+  const mimeType=fmt==='jpg'?'image/jpeg':'image/png';
+  const quality=fmt==='jpg'?0.92:1;
+  canvas.toBlob(blob=>{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=url;a.download=`color-advisor-${patId}.${fmt}`;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast(`${fmt.toUpperCase()} (${pxW}×${pxH}px) を保存しました ✓`);
+  },mimeType,quality);
+}
+
+/* ══════════════════════════════════════
+   COLOR PICKER + HARMONY TAB
+══════════════════════════════════════ */
+let cpHue=210,cpSat=70,cpVal=60;
+let cpDragging=null;
+
+function hsvToHex(h,s,v){
+  s/=100;v/=100;
+  const c=v*s,x=c*(1-Math.abs((h/60)%2-1)),m=v-c;
+  let r=0,g=0,b=0;
+  if(h<60){r=c;g=x;}else if(h<120){r=x;g=c;}else if(h<180){g=c;b=x;}
+  else if(h<240){g=x;b=c;}else if(h<300){r=x;b=c;}else{r=c;b=x;}
+  const toH=n=>Math.round((n+m)*255).toString(16).padStart(2,'0');
+  return `#${toH(r)}${toH(g)}${toH(b)}`;
+}
+function hexToHsv(hex){
+  if(!hex||hex.length<7)return{h:0,s:0,v:100};
+  const r=parseInt(hex.slice(1,3),16)/255,g=parseInt(hex.slice(3,5),16)/255,b=parseInt(hex.slice(5,7),16)/255;
+  const max=Math.max(r,g,b),min=Math.min(r,g,b),d=max-min;
+  let h=0;
+  if(d>0){if(max===r)h=((g-b)/d+6)%6;else if(max===g)h=(b-r)/d+2;else h=(r-g)/d+4;h*=60;}
+  return{h:Math.round(h),s:max?Math.round(d/max*100):0,v:Math.round(max*100)};
+}
+
+function getHarmonies(hex){
+  const{h,s,v}=hexToHsv(hex);
+  const rotate=(deg,sat,val)=>hsvToHex((h+deg+360)%360,sat??s,val??v);
+  const lighter=(amt)=>hsvToHex(h,Math.max(0,s-amt),Math.min(100,v+amt));
+  const darker=(amt)=>hsvToHex(h,Math.min(100,s+amt),Math.max(0,v-amt));
+  return [
+    {id:'complementary',name:'補色 Complementary',desc:'180°反対の色。強いコントラストでインパクトを出したい時に。',emoji:'⚡',
+      colors:[{hex,role:'Base'},{hex:lighter(15),role:'Base Light'},{hex:rotate(180),role:'Complement'},{hex:rotate(180,Math.max(0,s-15),Math.min(100,v+15)),role:'Comp Light'}]},
+    {id:'analogous',name:'類似色 Analogous',desc:'隣接する色相。まとまりがあり柔らかい印象に。',emoji:'🎨',
+      colors:[{hex:rotate(-30),role:'-30°'},{hex:rotate(-15),role:'-15°'},{hex,role:'Base'},{hex:rotate(15),role:'+15°'},{hex:rotate(30),role:'+30°'}]},
+    {id:'triadic',name:'トライアド Triadic',desc:'120°間隔の3色。バランスよく鮮やか。',emoji:'🔺',
+      colors:[{hex,role:'Base'},{hex:lighter(10),role:'Base Tint'},{hex:rotate(120),role:'+120°'},{hex:rotate(240),role:'+240°'}]},
+    {id:'split-comp',name:'スプリット補色',desc:'補色の両隣。補色より柔らかく個性的。',emoji:'✌️',
+      colors:[{hex,role:'Base'},{hex:rotate(150),role:'Split L'},{hex:rotate(210),role:'Split R'},{hex:lighter(20),role:'Base Tint'}]},
+    {id:'tetradic',name:'テトラード Tetradic',desc:'90°間隔の4色。豊かな表現が可能。',emoji:'🔷',
+      colors:[{hex,role:'Base'},{hex:rotate(90),role:'+90°'},{hex:rotate(180),role:'+180°'},{hex:rotate(270),role:'+270°'}]},
+    {id:'monochromatic',name:'モノクロマティック',desc:'同じ色相で明度・彩度を変えた洗練バリエーション。',emoji:'🌗',
+      colors:[{hex:hsvToHex(h,Math.min(100,s+30),Math.max(20,v-40)),role:'Darkest'},{hex:darker(15),role:'Dark'},{hex,role:'Base'},{hex:lighter(15),role:'Light'},{hex:hsvToHex(h,Math.max(0,s-40),Math.min(100,v+35)),role:'Lightest'}]},
+  ];
+}
+
+function renderPickerTab(content){
+  content.innerHTML='';
+  const layout=mk('div','picker-layout');
+  const panel=mk('div','cp-panel');
+  panel.innerHTML=`<div class="cp-panel-head">🎨 色を選ぶ</div><div class="cp-panel-body" id="cpBody"></div>`;
+  layout.appendChild(panel);
+  const right=mk('div','compat-section');right.id='harmonySection';
+  layout.appendChild(right);
+  content.appendChild(layout);
+  buildColorPicker(document.getElementById('cpBody'));
+  renderHarmonies(hsvToHex(cpHue,cpSat,cpVal));
+}
+
+function buildColorPicker(body){
+  const hex=hsvToHex(cpHue,cpSat,cpVal);
+  body.innerHTML=`
+    <div class="cp-sv-box" id="cpSVBox" style="background:hsl(${cpHue},100%,50%)">
+      <div class="cp-sv-white"></div><div class="cp-sv-black"></div>
+      <div class="cp-sv-cursor" id="cpSVCursor" style="left:${cpSat}%;top:${100-cpVal}%;background:${hex}"></div>
+    </div>
+    <div class="cp-hue-row">
+      <div class="cp-hue-track" id="cpHueTrack">
+        <div class="cp-hue-thumb" id="cpHueThumb" style="left:${cpHue/360*100}%;background:hsl(${cpHue},100%,50%)"></div>
+      </div>
+    </div>
+    <div class="cp-inputs">
+      <div class="cp-preview-box" id="cpPreview" style="background:${hex}"></div>
+      <input class="cp-hex-input" id="cpHexInput" value="${hex}" maxlength="7" oninput="onCpHexInput(this.value)">
+    </div>
+    <div class="sec-title" style="margin-bottom:8px">プリセット</div>
+    <div class="cp-presets" id="cpPresets"></div>`;
+  ['#FF3B3B','#FF7A00','#FFD600','#4CAF50','#00BCD4','#2196F3','#9C27B0','#E91E63','#FFFFFF','#F5F0E8','#C8A96E','#8B6040','#1A1A1A','#0A0C18','#1E3A34','#3A1E2A'].forEach(p=>{
+    const d=mk('div','cp-preset');d.style.background=p;d.title=p;
+    d.onclick=()=>{const hsv=hexToHsv(p);cpHue=hsv.h;cpSat=hsv.s;cpVal=hsv.v;updateCpUI();};
+    document.getElementById('cpPresets').appendChild(d);
+  });
+  setupCpEvents();
+}
+
+function setupCpEvents(){
+  const svBox=document.getElementById('cpSVBox');
+  const hueTrack=document.getElementById('cpHueTrack');
+  if(!svBox||!hueTrack)return;
+  const dragSV=(e)=>{const r=svBox.getBoundingClientRect();const cx=e.touches?e.touches[0].clientX:e.clientX;const cy=e.touches?e.touches[0].clientY:e.clientY;cpSat=Math.max(0,Math.min(100,(cx-r.left)/r.width*100));cpVal=Math.max(0,Math.min(100,(1-(cy-r.top)/r.height)*100));updateCpUI();};
+  const dragHue=(e)=>{const r=hueTrack.getBoundingClientRect();const cx=e.touches?e.touches[0].clientX:e.clientX;cpHue=Math.max(0,Math.min(359,(cx-r.left)/r.width*360));updateCpUI();};
+  svBox.addEventListener('mousedown',e=>{cpDragging='sv';dragSV(e);});
+  svBox.addEventListener('touchstart',e=>{cpDragging='sv';dragSV(e);},{passive:true});
+  hueTrack.addEventListener('mousedown',e=>{cpDragging='hue';dragHue(e);});
+  hueTrack.addEventListener('touchstart',e=>{cpDragging='hue';dragHue(e);},{passive:true});
+  document.addEventListener('mousemove',e=>{if(cpDragging==='sv')dragSV(e);else if(cpDragging==='hue')dragHue(e);});
+  document.addEventListener('mouseup',()=>{cpDragging=null;});
+  document.addEventListener('touchmove',e=>{if(cpDragging==='sv')dragSV(e);else if(cpDragging==='hue')dragHue(e);},{passive:true});
+  document.addEventListener('touchend',()=>{cpDragging=null;});
+}
+
+function onCpHexInput(val){
+  if(/^#[0-9A-Fa-f]{6}$/.test(val)){const hsv=hexToHsv(val);cpHue=hsv.h;cpSat=hsv.s;cpVal=hsv.v;updateCpUI(true);}
+}
+function updateCpUI(fromInput=false){
+  const hex=hsvToHex(cpHue,cpSat,cpVal);
+  const el=(id)=>document.getElementById(id);
+  if(el('cpSVBox'))el('cpSVBox').style.background=`hsl(${cpHue},100%,50%)`;
+  if(el('cpSVCursor')){el('cpSVCursor').style.left=`${cpSat}%`;el('cpSVCursor').style.top=`${100-cpVal}%`;el('cpSVCursor').style.background=hex;}
+  if(el('cpHueThumb')){el('cpHueThumb').style.left=`${cpHue/360*100}%`;el('cpHueThumb').style.background=`hsl(${cpHue},100%,50%)`;}
+  if(el('cpPreview'))el('cpPreview').style.background=hex;
+  if(el('cpHexInput')&&!fromInput)el('cpHexInput').value=hex;
+  renderHarmonies(hex);
+}
+
+function renderHarmonies(hex){
+  const section=document.getElementById('harmonySection');
+  if(!section)return;
+  section.innerHTML='';
+  // 色相環ヘッダー
+  const wheelWrap=mk('div','');
+  wheelWrap.style.cssText='display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:14px 16px;background:var(--s1);border:1px solid var(--border);border-radius:var(--radius)';
+  const wheelDiv=mk('div','hue-wheel-wrap');
+  const wc=document.createElement('canvas');wc.width=110;wc.height=110;
+  drawHueWheel(wc,hex);wheelDiv.appendChild(wc);wheelWrap.appendChild(wheelDiv);
+  const{h,s,v}=hexToHsv(hex);
+  const info=mk('div','');
+  info.innerHTML=`<div style="font-family:'Fraunces',serif;font-size:1.1rem;font-weight:600;color:${hex};margin-bottom:4px;text-shadow:0 1px 10px rgba(0,0,0,.4)">選択中の色</div><div style="font-size:.82rem;font-weight:700;letter-spacing:.06em;font-family:'DM Sans',monospace">${hex}</div><div style="font-size:.6rem;color:var(--muted);margin-top:3px;line-height:1.7">H: ${Math.round(h)}°&emsp;S: ${s}%&emsp;V: ${v}%</div><div style="display:flex;align-items:center;gap:7px;margin-top:9px"><div style="width:30px;height:30px;border-radius:7px;background:${hex};box-shadow:0 2px 10px rgba(0,0,0,.4)"></div><button onclick="copyHex('${hex}')" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:.6rem;font-weight:600;padding:5px 10px;border-radius:5px;cursor:pointer">HEXコピー</button></div>`;
+  wheelWrap.appendChild(info);
+  section.appendChild(wheelWrap);
+  // ハーモニーカード
+  getHarmonies(hex).forEach(har=>{
+    const block=mk('div','harmony-block');
+    const head=mk('div','harmony-head');
+    head.innerHTML=`<span class="harmony-name">${har.emoji} ${har.name}</span><span class="harmony-desc">${har.desc}</span>`;
+    block.appendChild(head);
+    const body=mk('div','harmony-body');
+    // strip
+    const strip=mk('div','h-strip');
+    har.colors.forEach(c=>{const seg=mk('div','h-strip-seg');seg.style.background=c.hex;seg.dataset.hex=c.hex;seg.onclick=()=>copyHex(c.hex);strip.appendChild(seg);});
+    body.appendChild(strip);
+    // swatches
+    const swRow=mk('div','h-swatches');
+    har.colors.forEach(c=>{const sw=mk('div','h-swatch');sw.innerHTML=`<div class="h-swatch-dot" style="background:${c.hex}"></div><div class="h-swatch-role">${c.role}</div><div class="h-swatch-hex">${c.hex}</div>`;sw.onclick=()=>copyHex(c.hex);swRow.appendChild(sw);});
+    body.appendChild(swRow);
+    // ui mock
+    const [c0,c1,c2,c3]=har.colors.map(x=>x.hex);
+    const bg2=c0,pri2=c2||c1,acc2=c3||c1,dark2=c3||c0;
+    const mock=mk('div','h-ui-mock');mock.style.background=bg2;
+    mock.innerHTML=`<button class="h-ui-btn" style="background:${pri2};color:${tc(pri2)}">Primary</button><button class="h-ui-btn" style="background:transparent;border:1.5px solid ${pri2};color:${pri2}">Outline</button><span class="h-ui-badge" style="background:${acc2};color:${tc(acc2)}">COLOR</span><div class="h-ui-card" style="background:${dark2};color:${tc(dark2)}"><div class="h-ui-card-title" style="color:${pri2}">${har.name.split(' ')[0]}</div><div class="h-ui-card-text">このカラーハーモニーのUIプレビューです。</div></div>`;
+    body.appendChild(mock);
+    // hex buttons row
+    const copyRow=mk('div','');copyRow.style.cssText='display:flex;gap:6px;flex-wrap:wrap';
+    har.colors.forEach(c=>{const btn=mk('button','');btn.style.cssText=`background:${c.hex};color:${tc(c.hex)};border:none;border-radius:6px;font-size:.58rem;font-weight:700;letter-spacing:.06em;padding:4px 9px;cursor:pointer`;btn.textContent=c.hex;btn.onclick=()=>copyHex(c.hex);copyRow.appendChild(btn);});
+    body.appendChild(copyRow);
+    block.appendChild(body);section.appendChild(block);
+  });
+}
+
+function drawHueWheel(canvas,selectedHex){
+  const ctx=canvas.getContext('2d');const cx=55,cy=55,r=52,ir=26;
+  for(let a=0;a<360;a++){const rad1=((a-90)*Math.PI/180),rad2=((a-89)*Math.PI/180);ctx.beginPath();ctx.moveTo(cx+Math.cos(rad1)*ir,cy+Math.sin(rad1)*ir);ctx.arc(cx,cy,r,rad1,rad2);ctx.arc(cx,cy,ir,rad2,rad1,true);ctx.closePath();ctx.fillStyle=`hsl(${a},100%,50%)`;ctx.fill();}
+  ctx.beginPath();ctx.arc(cx,cy,ir,0,2*Math.PI);ctx.fillStyle='#18181E';ctx.fill();
+  const{h}=hexToHsv(selectedHex);const angle=((h-90)*Math.PI/180);const dr=(ir+r)/2;
+  ctx.beginPath();ctx.arc(cx+Math.cos(angle)*dr,cy+Math.sin(angle)*dr,7,0,2*Math.PI);
+  ctx.fillStyle=selectedHex;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=2.5;ctx.stroke();
+}
+
+/* ══ COPY ══ */
+function copyHex(hex){navigator.clipboard.writeText(hex).catch(()=>{});showToast(`${hex} をコピー ✓`);}
+function copyAllHex(){if(!currentPalette)return;navigator.clipboard.writeText(currentPalette.colors.map(c=>`${c.role}: ${c.hex}`).join('\n')).catch(()=>{});showToast('全色コピー ✓');}
+function copyCSS(){if(!currentPalette)return;navigator.clipboard.writeText(`:root {\n${currentPalette.colors.map(c=>`  --color-${c.role.toLowerCase()}: ${c.hex};`).join('\n')}\n}`).catch(()=>{});showToast('CSS変数をコピー ✓');}
+function copyFigma(){if(!currentPalette)return;navigator.clipboard.writeText(JSON.stringify(currentPalette.colors.reduce((a,c)=>{a[c.role]={value:c.hex,type:'color'};return a;},{}),null,2)).catch(()=>{});showToast('Figmaトークンをコピー ✓');}
+function copyJSON(){if(!currentPalette)return;navigator.clipboard.writeText(JSON.stringify({name:currentPalette.name,palette:currentPalette.colors},null,2)).catch(()=>{});showToast('JSONをコピー ✓');}
+
+/* ══ UTILS ══ */
+function mk(tag,cls){const el=document.createElement(tag);if(cls)el.className=cls;return el;}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(t._to);t._to=setTimeout(()=>t.classList.remove('show'),2400);}
+
+init();
+</script>
+</body>
+</html>
